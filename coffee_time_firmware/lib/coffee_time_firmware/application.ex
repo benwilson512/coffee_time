@@ -13,6 +13,7 @@ defmodule CoffeeTimeFirmware.Application do
 
     children =
       [
+        {CoffeeTimeFirmware.Boiler, []}
         # Children for all targets
         # Starts a worker by calling: CoffeeTimeFirmware.Worker.start_link(arg)
         # {CoffeeTimeFirmware.Worker, arg},
