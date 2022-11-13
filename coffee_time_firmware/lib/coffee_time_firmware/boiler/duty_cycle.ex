@@ -9,9 +9,13 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   @tick_interval 100
 
-  defstruct duty_cycle: 0, state: :off, counter: 0, timer: nil, tripped: false, gpio: nil
+  defstruct duty_cycle: 0, counter: 0, timer: nil, gpio: nil
 
   def set(int) when int in 0..10 do
+    Logger.info("""
+    Setting duty cycle: #{int}
+    """)
+
     GenServer.cast(__MODULE__, {:set, int})
   end
 
@@ -28,11 +32,9 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     {:reply, :ok, %{state | duty_cycle: int}}
   end
 
-  def handle_info(_, %{tripped: true} = state) do
-    GPIO.write(state.gpio, 0)
-  end
-
   def handle_info(:tick, state) do
+    Process.send_after(self(), :tick, @tick_interval)
+
     gpio_val =
       if state.counter < state.duty_cycle do
         1
