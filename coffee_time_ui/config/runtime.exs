@@ -16,9 +16,9 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
-  config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint, server: true
-end
+# if System.get_env("PHX_SERVER") do
+config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint, server: true
+# end
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.

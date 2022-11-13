@@ -22,7 +22,7 @@ defmodule CoffeeTimeFirmware.MixProject do
   def application do
     [
       mod: {CoffeeTimeFirmware.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -34,9 +34,7 @@ defmodule CoffeeTimeFirmware.MixProject do
       {:shoehorn, "~> 0.9.1"},
       {:ring_logger, "~> 0.8.5"},
       {:toolshed, "~> 0.2.26"},
-
-      # stuff
-      {:circuits_gpio, "~> 1.0"},
+      {:coffee_time_ui, path: "../coffee_time_ui", env: Mix.env()},
 
       # Dependencies for all targets except :host
       {:nerves_runtime, "~> 0.13.0", targets: @all_targets},

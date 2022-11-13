@@ -18,11 +18,14 @@ config :nerves, :firmware, rootfs_overlay: "rootfs_overlay"
 # Set the SOURCE_DATE_EPOCH date for reproducible builds.
 # See https://reproducible-builds.org/docs/source-date-epoch/ for more information
 
-config :nerves, source_date_epoch: "1667799092"
+config :nerves, source_date_epoch: "1668309865"
 
+config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint, server: true
 
 if Mix.target() == :host do
   import_config "host.exs"
 else
   import_config "target.exs"
 end
+
+import_config "../../coffee_time_ui/config/config.exs"
