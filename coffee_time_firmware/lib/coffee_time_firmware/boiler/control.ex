@@ -1,6 +1,10 @@
 defmodule CoffeeTimeFirmware.Boiler.Control do
   use GenServer
 
+  @moduledoc """
+  Handles the PID loop for the boiler
+  """
+
   defstruct []
 
   def start_link(params) do
