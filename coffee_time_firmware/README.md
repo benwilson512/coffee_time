@@ -1,6 +1,11 @@
 # CoffeeTimeFirmware
 
-**TODO: Add description**
+
+```
+Circuits.
+
+{:ok, ref} = Circuits.SPI.open("spidev0.0", speed_hz: 9600, delay_ns: 100, mode: 1)
+```
 
 ## Targets
 

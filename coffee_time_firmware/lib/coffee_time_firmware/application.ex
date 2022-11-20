@@ -13,31 +13,21 @@ defmodule CoffeeTimeFirmware.Application do
 
     children =
       [
-        {CoffeeTimeFirmware.Breakers, []},
-        {CoffeeTimeFirmware.Boiler, []}
-        # Children for all targets
-        # Starts a worker by calling: CoffeeTimeFirmware.Worker.start_link(arg)
-        # {CoffeeTimeFirmware.Worker, arg},
-      ] ++ children(target())
+        pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
+        {CoffeeTimeFirmware.Measurement, []},
+        # {CoffeeTimeFirmware.Breakers, []},
+        # {CoffeeTimeFirmware.Boiler, []}
+      ]
+      |> List.flatten()
 
     Supervisor.start_link(children, opts)
   end
 
-  # List all child processes to be supervised
-  def children(:host) do
-    [
-      # Children that only run on the host
-      # Starts a worker by calling: CoffeeTimeFirmware.Worker.start_link(arg)
-      # {CoffeeTimeFirmware.Worker, arg},
-    ]
-  end
-
-  def children(_target) do
-    [
-      # Children for all targets except host
-      # Starts a worker by calling: CoffeeTimeFirmware.Worker.start_link(arg)
-      # {CoffeeTimeFirmware.Worker, arg},
-    ]
+  def pi_only(child) do
+    case target() do
+      :host -> []
+      _ -> child
+    end
   end
 
   def target() do
