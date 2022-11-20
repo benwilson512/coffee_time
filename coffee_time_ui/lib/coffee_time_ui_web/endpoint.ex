@@ -7,7 +7,8 @@ defmodule CoffeeTimeUiWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_coffee_time_ui_key",
-    signing_salt: "Zehakalz"
+    signing_salt: "AhCCjj/Z",
+    same_site: "Lax"
   ]
 
   socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
@@ -20,7 +21,7 @@ defmodule CoffeeTimeUiWeb.Endpoint do
     at: "/",
     from: :coffee_time_ui,
     gzip: false,
-    only: ~w(assets fonts images favicon.ico robots.txt)
+    only: CoffeeTimeUiWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.

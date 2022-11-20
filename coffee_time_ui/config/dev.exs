@@ -9,14 +9,14 @@ import Config
 config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {0, 0, 0, 0}, port: 4000],
+  http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "/5p3ZnKjmrGzgtjEARav5vtQemG/laoLuTGp453/hW44HPMqvnJMszUBnupwrcaj",
+  secret_key_base: "NgSg4NftGHZCNtf5mwQSwIODeRzqgebuAPV+ui2kQGj/2AFubaf8Vb6v9aiJD5d7",
   watchers: [
-    # Start the esbuild watcher by calling Esbuild.install_and_run(:default, args)
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -27,7 +27,6 @@ config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
 #
 #     mix phx.gen.cert
 #
-# Note that this task requires Erlang/OTP 20 or later.
 # Run `mix help phx.gen.cert` for more information.
 #
 # The `http:` config above can be replaced with:
@@ -53,6 +52,9 @@ config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
       ~r"lib/coffee_time_ui_web/templates/.*(eex)$"
     ]
   ]
+
+# Enable dev routes for dashboard and mailbox
+config :coffee_time_ui, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"

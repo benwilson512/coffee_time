@@ -4,11 +4,11 @@ import Config
 # you can enable the server option below.
 config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "fg06YbgVJfV+Qi9tjFcGJynTVucIn3c5eO2I3KIrr1g+LejGT/zPs7+0GwRt+rUu",
+  secret_key_base: "/C0GvgIf/cxKdabNnW5A5xqmMSWcu3ZnAO43PGjl8ebIjHmltzXVrP+qxXLJxJOw",
   server: false
 
 # Print only warnings and errors during test
-config :logger, level: :warn
+config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
