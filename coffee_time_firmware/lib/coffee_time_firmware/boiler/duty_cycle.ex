@@ -10,7 +10,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   @tick_interval 100
 
-  defstruct duty_cycle: 0, counter: 0, timer: nil, gpio: nil
+  defstruct [:context, :gpio, duty_cycle: 0, counter: 0]
 
   def set(int) when int in 0..10 do
     Logger.info("""
@@ -20,17 +20,20 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     GenServer.cast(__MODULE__, {:set, int})
   end
 
-  def start_link(params) do
-    GenServer.start_link(__MODULE__, params, name: __MODULE__)
+  def start_link(%{context: context}) do
+    GenServer.start_link(__MODULE__, context,
+      name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
+    )
   end
 
-  def init(_) do
+  def init(context: context) do
     Process.send_after(self(), :tick, @tick_interval)
     # TODO: set GPIO pin.
-    {:ok, %__MODULE__{}}
+    {:ok, %__MODULE__{context: context}}
   end
 
   def handle_cast({:set, int}, state) do
+    CoffeeTimeFirmware.PubSub.broadcast(state.context, :boiler_duty_cycle, int)
     {:noreply, %{state | duty_cycle: int}}
   end
 

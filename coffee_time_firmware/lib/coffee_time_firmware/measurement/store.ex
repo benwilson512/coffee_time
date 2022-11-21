@@ -11,14 +11,18 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
 
   use GenServer
 
+  defstruct [
+    :context
+  ]
+
   def start_link(%{context: context}) do
     GenServer.start_link(__MODULE__, context,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(opts) do
-    opts |> IO.inspect()
-    {:ok, opts}
+  def init(context) do
+    state = %__MODULE__{context: context}
+    {:ok, state}
   end
 end
