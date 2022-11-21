@@ -1,5 +1,6 @@
 defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   use GenServer
+  require Logger
 
   @moduledoc """
   Applies a duty cycle to the boiler.
@@ -30,7 +31,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def handle_cast({:set, int}, state) do
-    {:reply, :ok, %{state | duty_cycle: int}}
+    {:noreply, %{state | duty_cycle: int}}
   end
 
   def handle_info(:tick, state) do

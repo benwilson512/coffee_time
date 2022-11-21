@@ -18,15 +18,17 @@ defmodule CoffeeTimeFirmware.Boiler do
 
   use Supervisor
 
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  def start_link(%{context: context}) do
+    Supervisor.start_link(__MODULE__, context,
+      name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
+    )
   end
 
   @impl true
-  def init(_init_arg) do
+  def init(context) do
     children = [
-      {__MODULE__.DutyCycle, []},
-      {__MODULE__.Control, []}
+      {__MODULE__.DutyCycle, %{context: context}},
+      {__MODULE__.Control, %{context: context}}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

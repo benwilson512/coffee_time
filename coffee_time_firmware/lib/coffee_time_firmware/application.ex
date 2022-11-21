@@ -11,16 +11,32 @@ defmodule CoffeeTimeFirmware.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CoffeeTimeFirmware.Supervisor]
 
+    context = context()
+
     children =
       [
+        {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
+        {Registry,
+         keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
         pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
-        {CoffeeTimeFirmware.Measurement, []},
+        {CoffeeTimeFirmware.Measurement, %{context: context}}
         # {CoffeeTimeFirmware.Breakers, []},
         # {CoffeeTimeFirmware.Boiler, []}
       ]
       |> List.flatten()
 
     Supervisor.start_link(children, opts)
+  end
+
+  def context() do
+    %CoffeeTimeFirmware.Context{
+      registry: CoffeeTimeFirmware.Registry,
+      pubsub: CoffeeTimeFirmware.PubSub
+    }
+  end
+
+  def name(context, atom) do
+    {:via, Registry, {context.registry, atom}}
   end
 
   def pi_only(child) do

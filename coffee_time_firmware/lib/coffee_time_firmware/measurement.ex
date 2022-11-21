@@ -1,6 +1,4 @@
 defmodule CoffeeTimeFirmware.Measurement do
-  alias __MODULE__
-
   @moduledoc """
   Handles steam boiler logic.
 
@@ -18,16 +16,18 @@ defmodule CoffeeTimeFirmware.Measurement do
 
   use Supervisor
 
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  def start_link(%{context: context}) do
+    Supervisor.start_link(__MODULE__, context,
+      name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
+    )
   end
 
   @impl true
-  def init(_init_arg) do
+  def init(context) do
     children = [
-      {__MODULE__.Store, []},
-      {__MODULE__.BoilerProbe, []},
-      {__MODULE__.PiInternals, []}
+      {__MODULE__.Store, %{context: context}},
+      {__MODULE__.BoilerProbe, %{context: context}},
+      {__MODULE__.PiInternals, %{context: context}}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

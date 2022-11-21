@@ -1,6 +1,4 @@
 defmodule CoffeeTimeFirmware.Measurement.Store do
-  alias __MODULE__
-
   @moduledoc """
   Handles storing measured values.
 
@@ -13,8 +11,10 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
 
   use GenServer
 
-  def start_link(params) do
-    GenServer.start_link(__MODULE__, params, name: __MODULE__)
+  def start_link(%{context: context}) do
+    GenServer.start_link(__MODULE__, context,
+      name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
+    )
   end
 
   def init(opts) do
