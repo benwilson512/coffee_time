@@ -6,7 +6,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   Applies a duty cycle to the boiler.
   """
 
-  defstruct [:context, :gpio, :write_interval, duty_cycle: 0, counter: 0]
+  defstruct [:context, :gpio, :write_interval, duty_cycle: 0, counter: 1, subdivisions: 10]
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
@@ -49,7 +49,11 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
     {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_duty_cycle_pin(context.hardware)
 
-    state = %__MODULE__{context: context, gpio: gpio, write_interval: interval}
+    state = %__MODULE__{
+      context: context,
+      gpio: gpio,
+      write_interval: interval
+    }
 
     Process.send_after(self(), :tick, state.write_interval)
 
@@ -77,7 +81,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   def handle_continue(:cycle, state) do
     gpio_val =
-      if state.counter < state.duty_cycle do
+      if state.counter <= state.duty_cycle do
         1
       else
         0
@@ -87,13 +91,23 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     {:noreply, state}
   end
 
-  defp inc(state) do
-    Map.update!(state, :counter, fn
-      counter when counter >= 10 ->
-        0
-
-      counter ->
+  defp inc(%{subdivisions: subdivisions} = state) do
+    Map.update!(state, :counter, fn counter ->
+      if counter >= subdivisions do
+        1
+      else
         counter + 1
+      end
     end)
   end
+
+  # def duty_cycle(length, num_ones) do
+  #   {_, list} =
+  #     Enum.reduce(1..length, {2 * num_ones - length, []}, fn _, {d, list} ->
+  #       {d, val} = if d > 0, do: {d - 2 * length, 1}, else: {d, 0}
+  #       {d + 2 * num_ones, [val | list]}
+  #     end)
+
+  #   list
+  # end
 end
