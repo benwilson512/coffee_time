@@ -2,7 +2,10 @@ defmodule CoffeeTimeFirmware.Boiler.Control do
   use GenServer
 
   @moduledoc """
-  Handles the PID loop for the boiler
+  Determines whether the boiler heater element should be running.
+
+  At the moment this is a simple thermostat. There is a minimum and a maximum threshold
+  and this module keeps the temperature between those bounds. In the future this should be a PID loop.
   """
 
   defstruct context: nil
@@ -17,7 +20,4 @@ defmodule CoffeeTimeFirmware.Boiler.Control do
     state = %__MODULE__{context: context}
     {:ok, state}
   end
-
-  # def handle_continue(:duty_cycle, state) do
-  # end
 end

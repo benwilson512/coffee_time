@@ -55,3 +55,71 @@ flowchart TD
   SSR -- 240v --> Boiler
   end
 ```
+
+
+# Ribbon cable
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|5v|5v|5v|5v|0v|0v|0v|0v|5v|5v
+
+5 is probably ground
+
+### Known things that happened
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|  |  |  |  |  |  |  |IO|  |3v
+top left
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|  |  |  |  |  |  |IO|  |  |3v
+
+Top right
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|  |  |  |  |  |IO|  |  |  |3v
+
+bottom left
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|  |  |  |  |IO|  |  |  |  |3v
+
+Bottom right
+
+# Main Connectors
+
+1 Neutral
+2 240+
+
+3 240+ boiler
+4 240+ Pump
+5 Refill solenoid
+6 Tea water valve
+7 Group head
+
+
+
+# New Insane Plan
+
+```mermaid
+flowchart TD
+  subgraph Machine
+  240v
+  Boiler
+  RTD
+  end
+  subgraph control_module
+  240v-- black --> splitter1
+  splitter1 -- 240v --> button
+  button -- 240v --> usb_power
+  splitter1 -- 240v --> main_relay
+  main_relay -- 240v --> splitter2
+  splitter2 -- 240v --> usb_power
+  splitter2 -- 240v --> SSR
+  usb_power -- white --> 240v
+  usb_power -- 5v --> pi
+  pi <-- 3v --> rtd_board
+  pi -- 3v --> SSR
+  pi -- 3v --> main_relay
+  rtd_board <--> RTD
+  SSR -- 240v --> Boiler
+  end
+```

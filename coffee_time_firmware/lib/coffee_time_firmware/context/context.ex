@@ -1,7 +1,8 @@
 defmodule CoffeeTimeFirmware.Context do
   defstruct [
     :registry,
-    :pubsub
+    :pubsub,
+    :layout
   ]
 
   def breaker_config() do

@@ -12,7 +12,8 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
   use GenServer
 
   defstruct [
-    :context
+    :context,
+    :ets
   ]
 
   def start_link(%{context: context}) do
@@ -22,7 +23,15 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
   end
 
   def init(context) do
-    state = %__MODULE__{context: context}
+    ets =
+      :ets.new(:measurements, [
+        :named_table,
+        :public,
+        read_concurrency: true,
+        write_concurrency: true
+      ])
+
+    state = %__MODULE__{context: context, ets: ets}
     {:ok, state}
   end
 end

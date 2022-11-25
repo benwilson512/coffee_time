@@ -1,6 +1,4 @@
 defmodule CoffeeTimeFirmware.Boiler do
-  alias __MODULE__
-
   @moduledoc """
   Handles steam boiler logic.
 
@@ -28,6 +26,7 @@ defmodule CoffeeTimeFirmware.Boiler do
   def init(context) do
     children = [
       {__MODULE__.DutyCycle, %{context: context}},
+      {__MODULE__.FillLevel, %{context: context}},
       {__MODULE__.Control, %{context: context}}
     ]
 
