@@ -20,13 +20,13 @@ defmodule CoffeeTimeFirmware.Boiler.FillLevel do
   end
 
   def start_link(%{context: context}) do
-    GenServer.start_link(__MODULE__, context,
+    GenServer.start_link(__MODULE__, %{context: context},
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context: context) do
-    {:ok, gpio} = context.hardware.open_fill_level()
+  def init(%{context: context}) do
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_fill_level(context.hardware)
 
     state = state_from_gpio(context, gpio)
 
@@ -42,7 +42,7 @@ defmodule CoffeeTimeFirmware.Boiler.FillLevel do
   end
 
   defp state_from_gpio(context, gpio) do
-    case context.hardware.read_gpio(gpio) do
+    case CoffeeTimeFirmware.Hardware.read_gpio(context.hardware, gpio) do
       1 ->
         :full
 

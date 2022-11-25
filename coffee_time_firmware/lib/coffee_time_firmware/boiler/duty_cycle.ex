@@ -43,12 +43,12 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def start_link(%{context: context}) do
-    GenServer.start_link(__MODULE__, context,
+    GenServer.start_link(__MODULE__, %{context: context},
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context: context) do
+  def init(%{context: context}) do
     Process.send_after(self(), :tick, @tick_interval)
     # TODO: set GPIO pin.
     {:ok, %__MODULE__{context: context}}
