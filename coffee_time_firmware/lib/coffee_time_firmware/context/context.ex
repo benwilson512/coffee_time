@@ -2,8 +2,14 @@ defmodule CoffeeTimeFirmware.Context do
   defstruct [
     :registry,
     :pubsub,
-    :layout
+    :hardware
   ]
+
+  @type t() :: %__MODULE__{
+          registry: atom(),
+          pubsub: atom(),
+          hardware: module()
+        }
 
   def breaker_config() do
     %{

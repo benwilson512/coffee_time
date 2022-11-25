@@ -26,13 +26,9 @@ defmodule CoffeeTimeFirmware.Boiler.FillLevel do
   end
 
   def init(context: context) do
-    {:ok, gpio} =
-      Circuits.GPIO.open(context.layout.fill_sensor_pin, :input,
-        initial_value: 0,
-        pull_mode: :pulldown
-      )
+    {:ok, gpio} = context.hardware.open_fill_level()
 
-    state = state_from_gpio(gpio)
+    state = state_from_gpio(context, gpio)
 
     state = %__MODULE__{context: context, gpio: gpio, state: state}
 
@@ -45,8 +41,8 @@ defmodule CoffeeTimeFirmware.Boiler.FillLevel do
     1000
   end
 
-  defp state_from_gpio(gpio) do
-    case Circuits.GPIO.read(gpio) do
+  defp state_from_gpio(context, gpio) do
+    case context.hardware.read_gpio(gpio) do
       1 ->
         :full
 

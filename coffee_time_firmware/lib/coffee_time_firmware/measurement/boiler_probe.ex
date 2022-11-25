@@ -7,7 +7,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerProbe do
 
   defstruct [:context, target_interval: 200]
 
-  def start_link(%{context: context}) do
+  def start_link(%{context: context, probe_source: probe_source}) do
     GenServer.start_link(__MODULE__, context,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
