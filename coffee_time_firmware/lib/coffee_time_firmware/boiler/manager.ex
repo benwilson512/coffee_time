@@ -67,6 +67,13 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   ## Boot Warmup
   ######################
 
+  # Using a transition callback here is really handy since there are multiple pathways into
+  # this state.
+  def handle_event(:event, _old_state, :boot_warmup, _data) do
+    # TODO: Set the desired temp threshold in wherever controls that.
+    :keep_state_and_data
+  end
+
   def handle_event(:info, {:broadcast, :fill_level_status, :full}, :boot_warmup, _data) do
     :keep_state_and_data
   end
