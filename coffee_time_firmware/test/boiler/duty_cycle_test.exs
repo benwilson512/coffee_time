@@ -21,9 +21,9 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
       CoffeeTimeFirmware.Boiler.DutyCycle.start_link(%{
         context: context,
         intervals: %{
-          # The point of the large value here is that we never really want the timer to go off,
+          # The point of the infinite value here is that we never really want the timer to go off,
           # we are always going to trigger it manually for these tests
-          Boiler.DutyCycle => %{write_interval: :timer.hours(1)}
+          Boiler.DutyCycle => %{write_interval: :infinity}
         }
       })
 

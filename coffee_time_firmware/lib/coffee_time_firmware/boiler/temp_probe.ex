@@ -33,6 +33,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempProbe do
   end
 
   defp set_timer(state) do
-    Process.send_after(self(), :query, state.read_interval)
+    CoffeeTimeFirmware.Util.send_after(self(), :query, state.read_interval)
   end
 end

@@ -1,7 +1,10 @@
 defmodule CoffeeTimeFirmware.Boiler.Manager do
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
+  require Logger
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
+
+  alias CoffeeTimeFirmware.Boiler
 
   @moduledoc """
   Manages the Boiler state machine.
@@ -16,7 +19,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   def boot(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
+    |> GenStateMachine.cast(:boot)
   end
 
   def start_link(%{context: context}) do
@@ -30,12 +33,33 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
     {:ok, :idle, data}
   end
 
-  def handle_event({:call, from}, :boot, :idle, data) do
-    {:next_state, :booting, [{:reply, from, data}]}
+  def handle_event(:cast, :boot, :idle, data) do
+    Boiler.FillStatus.subscribe(data.context)
+
+    next_state =
+      case Boiler.FillStatus.check(data.context) do
+        :full ->
+          :boot_warmup
+
+        :low ->
+          # TODO: Go actually tell the pump to fill things
+          :boot_fill
+      end
+
+    {:next_state, next_state, data}
   end
 
-  def handle_event(:enter, event, state, data) do
-    binding() |> IO.inspect(label: :entering_event)
-    {:next_state, state, data}
+  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :boot_fill, data) do
+    {:next_state, :boot_warmup, data}
+  end
+
+  def handle_event(:enter, old_state, new_state, data) do
+    Logger.debug("""
+    Boiler Transitioning from:
+    Old: #{inspect(old_state)}
+    New: #{inspect(new_state)}
+    """)
+
+    {:keep_state, data}
   end
 end

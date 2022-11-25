@@ -55,7 +55,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
       write_interval: interval
     }
 
-    Process.send_after(self(), :tick, state.write_interval)
+    schedule_tick(state)
 
     {:ok, state}
   end
@@ -75,7 +75,8 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def handle_info(:tick, state) do
-    Process.send_after(self(), :tick, state.write_interval)
+    schedule_tick(state)
+
     {:noreply, inc(state), {:continue, :cycle}}
   end
 
@@ -89,6 +90,12 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
     CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)
     {:noreply, state}
+  end
+
+  defp schedule_tick(state) do
+    if state.write_interval != :infinity do
+      Process.send_after(self(), :tick, state.write_interval)
+    end
   end
 
   defp inc(%{subdivisions: subdivisions} = state) do
