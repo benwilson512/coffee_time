@@ -7,7 +7,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerProbe do
 
   defstruct [:context, target_interval: 200]
 
-  def start_link(%{context: context, probe_source: probe_source}) do
+  def start_link(%{context: context}) do
     GenServer.start_link(__MODULE__, context,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
@@ -24,7 +24,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerProbe do
     # as possible.
     set_timer(state)
 
-    temp = Max31865.get_temp()
+    temp = CoffeeTimeFirmware.Hardware.read_boiler_probe_temp(state.context.hardware)
 
     # probably wrap in a try?
     CoffeeTimeFirmware.PubSub.broadcast(state.context, :boiler_temp, temp)

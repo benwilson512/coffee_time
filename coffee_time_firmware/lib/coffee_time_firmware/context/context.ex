@@ -11,6 +11,14 @@ defmodule CoffeeTimeFirmware.Context do
           hardware: module()
         }
 
+  def new(:host) do
+    %CoffeeTimeFirmware.Context{
+      registry: CoffeeTimeFirmware.Registry,
+      pubsub: CoffeeTimeFirmware.PubSub,
+      hardware: %CoffeeTimeFirmware.Hardware.Host{}
+    }
+  end
+
   def breaker_config() do
     %{
       shutdown_override_gpio: 13,

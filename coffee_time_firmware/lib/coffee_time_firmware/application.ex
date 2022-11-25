@@ -11,7 +11,7 @@ defmodule CoffeeTimeFirmware.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: CoffeeTimeFirmware.Supervisor]
 
-    context = context()
+    context = CoffeeTimeFirmware.Context.new(target())
 
     children =
       [
@@ -28,13 +28,6 @@ defmodule CoffeeTimeFirmware.Application do
       |> List.flatten()
 
     Supervisor.start_link(children, opts)
-  end
-
-  def context() do
-    %CoffeeTimeFirmware.Context{
-      registry: CoffeeTimeFirmware.Registry,
-      pubsub: CoffeeTimeFirmware.PubSub
-    }
   end
 
   def name(context, atom) do

@@ -1,8 +1,9 @@
-defmodule CoffeeTimeFirmware.Hardware.Interface do
-  @callback read_gpio(reference()) :: term()
-  @callback write_gpio(reference(), term()) :: :ok
+defprotocol CoffeeTimeFirmware.Hardware do
+  def read_gpio(interface, gpio)
+  def write_gpio(interface, key, value)
 
-  @callback open_fill_level() :: {:ok, term()}
+  def open_fill_level(interface)
 
-  @callback read_boiler_probe_temp(atom()) :: integer()
+  def read_boiler_probe_temp(interface)
+  def read_internal_temperature(interface)
 end
