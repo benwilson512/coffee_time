@@ -6,16 +6,14 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   Applies a duty cycle to the boiler.
   """
 
-  alias Circuits.GPIO
-
-  @tick_interval 100
-
-  defstruct [:context, :gpio, blockers: MapSet.new([]), duty_cycle: 0, counter: 0]
+  defstruct [:context, :gpio, :write_interval, duty_cycle: 0, counter: 0]
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
     Setting duty cycle: #{int}
     """)
+
+    CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
 
     context
     |> CoffeeTimeFirmware.Application.name(__MODULE__)
@@ -42,16 +40,20 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     |> GenServer.call({:unblock, val})
   end
 
-  def start_link(%{context: context}) do
-    GenServer.start_link(__MODULE__, %{context: context},
+  def start_link(%{context: context} = params) do
+    GenServer.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(%{context: context}) do
-    Process.send_after(self(), :tick, @tick_interval)
-    # TODO: set GPIO pin.
-    {:ok, %__MODULE__{context: context}}
+  def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_duty_cycle_pin(context.hardware)
+
+    state = %__MODULE__{context: context, gpio: gpio, write_interval: interval}
+
+    Process.send_after(self(), :tick, state.write_interval)
+
+    {:ok, state}
   end
 
   def handle_call({:block, blocker}, _from, state) do
@@ -65,12 +67,11 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def handle_cast({:set, int}, state) do
-    CoffeeTimeFirmware.PubSub.broadcast(state.context, :boiler_duty_cycle, int)
     {:noreply, %{state | duty_cycle: int}, {:continue, :cycle}}
   end
 
   def handle_info(:tick, state) do
-    Process.send_after(self(), :tick, @tick_interval)
+    Process.send_after(self(), :tick, state.write_interval)
     {:noreply, inc(state), {:continue, :cycle}}
   end
 
@@ -82,7 +83,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
         0
       end
 
-    GPIO.write(state.gpio, gpio_val)
+    CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)
     {:noreply, state}
   end
 

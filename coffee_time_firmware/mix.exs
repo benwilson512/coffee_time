@@ -29,6 +29,7 @@ defmodule CoffeeTimeFirmware.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:gen_state_machine, "~> 3.0"},
       # Dependencies for all targets
       {:nerves, "~> 1.7.16 or ~> 1.8.0 or ~> 1.9.0", runtime: false},
       {:shoehorn, "~> 0.9.1"},
