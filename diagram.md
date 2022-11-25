@@ -57,32 +57,33 @@ flowchart TD
 ```
 
 
-# Ribbon cable
-|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
-|5v|5v|5v|5v|0v|0v|0v|0v|5v|5v
+## Ribbon cable
 
-5 is probably ground
-
-### Known things that happened
+### Top Left
 
 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10
-|  |  |  |  |  |  |  |IO|  |3v
-top left
+|  |  |  |LD|  |  |  |IO|  |3v
+
+### Top right
 
 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10
-|  |  |  |  |  |  |IO|  |  |3v
+|  |  |LD|  |  |  |IO|  |  |3v
 
-Top right
-
-|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
-|  |  |  |  |  |IO|  |  |  |3v
-
-bottom left
+### Bottom Left
 
 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10
-|  |  |  |  |IO|  |  |  |  |3v
+|  |LD|  |  |  |IO|  |  |  |3v
 
-Bottom right
+### Bottom Right
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|LD|  |  |  |IO|  |  |  |  |3v
+
+### Program Key
+
+|1 |2 |3 |4 |5 |6 |7 |8 |9 |10
+|  |LD|  |  |IO|IO|  |  |3v|
+
 
 # Main Connectors
 
