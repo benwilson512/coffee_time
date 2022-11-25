@@ -1,9 +1,13 @@
 defmodule CoffeeTimeFirmware.Hardware.Mock do
   defstruct [:pid]
 
-  def set_fill_status(pid, val) do
+  def set_fill_status(pid, val, opts \\ []) do
     send(pid, :tick)
     send(pid, {:gpio_val, :fill_level_stub, val})
+
+    unless opts[:async] do
+      :sys.get_state(pid)
+    end
   end
 
   defimpl CoffeeTimeFirmware.Hardware do

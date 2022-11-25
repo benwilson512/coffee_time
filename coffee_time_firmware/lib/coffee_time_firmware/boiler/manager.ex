@@ -49,8 +49,26 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
     {:next_state, next_state, data}
   end
 
-  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :boot_fill, data) do
-    {:next_state, :boot_warmup, data}
+  ## Boot Fill
+  ######################
+
+  def handle_event(:info, {:broadcast, :fill_level_status, status}, :boot_fill, data) do
+    # IO.puts("received #{status}")
+
+    case status do
+      :full ->
+        {:next_state, :boot_warmup, data}
+
+      _ ->
+        :keep_state_and_data
+    end
+  end
+
+  ## Boot Warmup
+  ######################
+
+  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :boot_warmup, _data) do
+    :keep_state_and_data
   end
 
   def handle_event(:enter, old_state, new_state, data) do

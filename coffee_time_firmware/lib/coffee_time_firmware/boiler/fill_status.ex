@@ -61,7 +61,6 @@ defmodule CoffeeTimeFirmware.Boiler.FillStatus do
     status = status_from_gpio(state)
 
     if status != state.status do
-      status |> IO.inspect()
       CoffeeTimeFirmware.PubSub.broadcast(state.context, @pubsub_key, status)
     end
 
