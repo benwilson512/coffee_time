@@ -26,7 +26,6 @@ defmodule CoffeeTimeFirmware.Measurement do
   def init(context) do
     children = [
       {__MODULE__.Store, %{context: context}},
-      {__MODULE__.BoilerProbe, %{context: context}},
       {__MODULE__.PiInternals, %{context: context}}
     ]
 

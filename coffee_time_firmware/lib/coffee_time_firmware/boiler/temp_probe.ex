@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.Measurement.BoilerProbe do
+defmodule CoffeeTimeFirmware.Boiler.TempProbe do
   @moduledoc """
   Fetches the Boiler temperature
   """

@@ -25,11 +25,12 @@ defmodule CoffeeTimeFirmware.Boiler do
   @impl true
   def init(context) do
     children = [
-      {__MODULE__.DutyCycle, %{context: context}},
+      {__MODULE__.TempProbe, %{context: context}},
       {__MODULE__.FillLevel, %{context: context}},
+      {__MODULE__.DutyCycle, %{context: context}},
       {__MODULE__.Control, %{context: context}}
     ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :one_for_all)
   end
 end
