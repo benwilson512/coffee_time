@@ -13,21 +13,27 @@ defmodule CoffeeTimeFirmware.Application do
 
     context = CoffeeTimeFirmware.Context.new(target())
 
-    children =
-      [
-        {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
-        {Registry,
-         keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
-        {CoffeeTimeFirmware.Breakers,
-         %{context: context, config: CoffeeTimeFirmware.Context.breaker_config()}},
-        pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
-        {CoffeeTimeFirmware.Measurement, %{context: context}}
-
-        # {CoffeeTimeFirmware.Boiler, []}
-      ]
-      |> List.flatten()
+    children = children(context, Application.get_env(:coffee_time_firmware, :run))
 
     Supervisor.start_link(children, opts)
+  end
+
+  def children(context, true) do
+    [
+      {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
+      {Registry, keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
+      {CoffeeTimeFirmware.Breakers,
+       %{context: context, config: CoffeeTimeFirmware.Context.breaker_config()}},
+      pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
+      {CoffeeTimeFirmware.Measurement, %{context: context}}
+
+      # {CoffeeTimeFirmware.Boiler, []}
+    ]
+    |> List.flatten()
+  end
+
+  def children(_, _) do
+    []
   end
 
   def name(context, atom) do

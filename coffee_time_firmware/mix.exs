@@ -29,6 +29,7 @@ defmodule CoffeeTimeFirmware.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:gen_state_machine, "~> 3.0"},
       # Dependencies for all targets
       {:nerves, "~> 1.7.16 or ~> 1.8.0 or ~> 1.9.0", runtime: false},
       {:shoehorn, "~> 0.9.1"},
@@ -37,7 +38,7 @@ defmodule CoffeeTimeFirmware.MixProject do
       # {:coffee_time_ui, path: "../coffee_time_ui", env: Mix.env()},
       {:circuits_gpio, "~> 1.0"},
       {:circuits_spi, "~> 1.3"},
-      {:max31865, "~> 0.1.0", path: "../../max31865"},
+      {:max31865, "~> 0.1.0", github: "benwilson512/max31865"},
 
       # Dependencies for all targets except :host
       {:nerves_runtime, "~> 0.13.0", targets: @all_targets},

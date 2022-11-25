@@ -6,16 +6,14 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   Applies a duty cycle to the boiler.
   """
 
-  alias Circuits.GPIO
-
-  @tick_interval 100
-
-  defstruct [:context, :gpio, blockers: MapSet.new([]), duty_cycle: 0, counter: 0]
+  defstruct [:context, :gpio, :write_interval, duty_cycle: 0, counter: 1, subdivisions: 10]
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
     Setting duty cycle: #{int}
     """)
+
+    CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
 
     context
     |> CoffeeTimeFirmware.Application.name(__MODULE__)
@@ -42,16 +40,24 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     |> GenServer.call({:unblock, val})
   end
 
-  def start_link(%{context: context}) do
-    GenServer.start_link(__MODULE__, context,
+  def start_link(%{context: context} = params) do
+    GenServer.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context: context) do
-    Process.send_after(self(), :tick, @tick_interval)
-    # TODO: set GPIO pin.
-    {:ok, %__MODULE__{context: context}}
+  def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_duty_cycle_pin(context.hardware)
+
+    state = %__MODULE__{
+      context: context,
+      gpio: gpio,
+      write_interval: interval
+    }
+
+    schedule_tick(state)
+
+    {:ok, state}
   end
 
   def handle_call({:block, blocker}, _from, state) do
@@ -65,34 +71,50 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def handle_cast({:set, int}, state) do
-    CoffeeTimeFirmware.PubSub.broadcast(state.context, :boiler_duty_cycle, int)
     {:noreply, %{state | duty_cycle: int}, {:continue, :cycle}}
   end
 
   def handle_info(:tick, state) do
-    Process.send_after(self(), :tick, @tick_interval)
+    schedule_tick(state)
+
     {:noreply, inc(state), {:continue, :cycle}}
   end
 
   def handle_continue(:cycle, state) do
     gpio_val =
-      if state.counter < state.duty_cycle do
+      if state.counter <= state.duty_cycle do
         1
       else
         0
       end
 
-    GPIO.write(state.gpio, gpio_val)
+    CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)
     {:noreply, state}
   end
 
-  defp inc(state) do
-    Map.update!(state, :counter, fn
-      counter when counter >= 10 ->
-        0
+  defp schedule_tick(state) do
+    if state.write_interval != :infinity do
+      Process.send_after(self(), :tick, state.write_interval)
+    end
+  end
 
-      counter ->
+  defp inc(%{subdivisions: subdivisions} = state) do
+    Map.update!(state, :counter, fn counter ->
+      if counter >= subdivisions do
+        1
+      else
         counter + 1
+      end
     end)
   end
+
+  # def duty_cycle(length, num_ones) do
+  #   {_, list} =
+  #     Enum.reduce(1..length, {2 * num_ones - length, []}, fn _, {d, list} ->
+  #       {d, val} = if d > 0, do: {d - 2 * length, 1}, else: {d, 0}
+  #       {d + 2 * num_ones, [val | list]}
+  #     end)
+
+  #   list
+  # end
 end

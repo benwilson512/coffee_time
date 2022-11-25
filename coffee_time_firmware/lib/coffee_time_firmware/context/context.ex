@@ -1,4 +1,6 @@
 defmodule CoffeeTimeFirmware.Context do
+  alias Max31865.Registers
+
   defstruct [
     :registry,
     :pubsub,
@@ -17,6 +19,11 @@ defmodule CoffeeTimeFirmware.Context do
       pubsub: CoffeeTimeFirmware.PubSub,
       hardware: %CoffeeTimeFirmware.Hardware.Host{}
     }
+  end
+
+  def get_pid(context, name) do
+    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid
   end
 
   def breaker_config() do

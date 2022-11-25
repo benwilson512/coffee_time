@@ -5,16 +5,16 @@ defmodule CoffeeTimeFirmware.Boiler.TempProbe do
 
   use GenServer
 
-  defstruct [:context, target_interval: 200]
+  defstruct [:context, :read_interval]
 
-  def start_link(%{context: context}) do
-    GenServer.start_link(__MODULE__, context,
+  def start_link(%{context: context} = params) do
+    GenServer.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context) do
-    state = %__MODULE__{context: context}
+  def init(%{context: context, intervals: %{__MODULE__ => %{read_interval: read_interval}}}) do
+    state = %__MODULE__{context: context, read_interval: read_interval}
     set_timer(state)
     {:ok, state}
   end
@@ -33,10 +33,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempProbe do
   end
 
   defp set_timer(state) do
-    if state.target_interval < 75 do
-      raise "Target interval should never be less than 75ms because it takes that long to read the sensor"
-    else
-      Process.send_after(self(), :query, state.target_interval)
-    end
+    CoffeeTimeFirmware.Util.send_after(self(), :query, state.read_interval)
   end
 end
