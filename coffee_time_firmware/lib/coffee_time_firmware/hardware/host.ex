@@ -1,5 +1,5 @@
 defmodule CoffeeTimeFirmware.Hardware.Host do
-  defstruct boiler_fill_level_pin: 18
+  defstruct boiler_fill_level_pin: 18, duty_cycle_pin: 16
 
   defimpl CoffeeTimeFirmware.Hardware do
     def open_fill_level(host) do
@@ -7,6 +7,10 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
         initial_value: 0,
         pull_mode: :pulldown
       )
+    end
+
+    def open_duty_cycle_pin(host) do
+      Circuits.GPIO.open(host.duty_cycle_pin, :output)
     end
 
     def read_boiler_probe_temp(_) do

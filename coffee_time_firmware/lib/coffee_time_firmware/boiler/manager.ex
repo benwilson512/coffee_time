@@ -14,7 +14,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   should get extracted to its own module.
   """
 
-  defstruct context: nil
+  defstruct target_temperature: 125, context: nil
 
   def boot(context) do
     context
@@ -57,7 +57,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
 
     case status do
       :full ->
-        {:next_state, :boot_warmup, data}
+        {:next_state, :hold_temp, data}
 
       _ ->
         :keep_state_and_data

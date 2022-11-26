@@ -21,6 +21,14 @@ defmodule CoffeeTimeFirmware.Context do
     }
   end
 
+  def new(:rpi3) do
+    %CoffeeTimeFirmware.Context{
+      registry: CoffeeTimeFirmware.Registry,
+      pubsub: CoffeeTimeFirmware.PubSub,
+      hardware: %CoffeeTimeFirmware.Hardware.Pi{}
+    }
+  end
+
   def get_pid(context, name) do
     [{pid, _}] = Registry.lookup(context.registry, name)
     pid

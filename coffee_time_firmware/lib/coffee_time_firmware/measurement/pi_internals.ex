@@ -32,15 +32,6 @@ defmodule CoffeeTimeFirmware.Measurement.PiInternals do
     {:noreply, state}
   end
 
-  @temperature_file "/sys/class/thermal/thermal_zone0/temp"
-  def read_temp() do
-    @temperature_file
-    |> File.read!()
-    |> String.trim()
-    |> String.to_integer()
-    |> Kernel./(1000)
-  end
-
   defp set_timer(state) do
     if state.target_interval < 75 do
       raise "Target interval should never be less than 75ms because it takes that long to read the sensor"
