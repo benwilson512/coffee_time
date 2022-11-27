@@ -61,6 +61,11 @@ flowchart TD
 
 ### Top Left
 
+LED Driver:
+3.3v + 680ohms => ~5ma
+
+Total 20ma
+
 |1 |2 |3 |4 |5 |6 |7 |8 |9 |10
 |  |  |  |LD|  |  |  |IO|  |3v
 

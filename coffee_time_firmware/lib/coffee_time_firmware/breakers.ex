@@ -55,6 +55,8 @@ defmodule CoffeeTimeFirmware.Breakers do
       }
       |> reset_timers(:all)
 
+    CoffeeTimeFirmware.PubSub.subscribe(context, :boiler_temp)
+
     {:ok, state, {:continue, :maybe_shutdown}}
   end
 
@@ -81,6 +83,15 @@ defmodule CoffeeTimeFirmware.Breakers do
     {:noreply, state, {:continue, :maybe_shutdown}}
   end
 
+  def handle_info({:broadcast, :boiler_temp, val}, state) do
+    if val > 130 do
+      Logger.error("shutting down from too much temp")
+      :init.stop()
+    end
+
+    {:noreply, reset_timers(state, [:boiler_temp_update])}
+  end
+
   def handle_continue(:maybe_shutdown, %{fault_mode: fault_mode, fault: fault} = state)
       when fault != nil do
     case fault_mode do
@@ -100,10 +111,6 @@ defmodule CoffeeTimeFirmware.Breakers do
 
   def handle_continue(:maybe_shutdown, state) do
     {:noreply, state}
-  end
-
-  def handle_info({:broadcast, :boiler_temp, _}, _, state) do
-    {:noreply, reset_timers(state, [:boiler_temp_update])}
   end
 
   # Resets one or more timers. Pass in the special `:all` key to reset all timers.
@@ -132,12 +139,13 @@ defmodule CoffeeTimeFirmware.Breakers do
     %{state | timers: timers}
   end
 
-  defp fault_mode(config) do
-    {:ok, gpio} = Circuits.GPIO.open(config.shutdown_override_gpio, :input)
+  defp fault_mode(_config) do
+    # {:ok, gpio} = Circuits.GPIO.open(config.shutdown_override_gpio, :input)
 
-    case Circuits.GPIO.read(gpio) do
-      1 -> :inspect
-      0 -> :shutdown
-    end
+    # case Circuits.GPIO.read(gpio) do
+    #   1 -> :inspect
+    #   0 -> :shutdown
+    # end
+    :inspect
   end
 end

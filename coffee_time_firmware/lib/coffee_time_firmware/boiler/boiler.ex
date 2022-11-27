@@ -26,9 +26,9 @@ defmodule CoffeeTimeFirmware.Boiler do
   def init(params) do
     params =
       Map.put_new(params, :intervals, %{
-        __MODULE__.TempProbe => 200,
+        __MODULE__.TempProbe => %{read_interval: 500},
         __MODULE__.FillStatus => %{idle_read_interval: 1000, refill_read_interval: 100},
-        __MODULE__.DutyCycle => 100
+        __MODULE__.DutyCycle => %{write_interval: 100}
       })
 
     children = [

@@ -4,6 +4,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
 
   @moduledoc """
@@ -14,12 +15,18 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   should get extracted to its own module.
   """
 
-  defstruct target_temperature: 125, context: nil
+  defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
 
   def boot(context) do
     context
     |> name(__MODULE__)
     |> GenStateMachine.cast(:boot)
+  end
+
+  def set_target_temp(context, temp) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call({:set_target_temp, temp})
   end
 
   def start_link(%{context: context}) do
@@ -35,11 +42,12 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
 
   def handle_event(:cast, :boot, :idle, data) do
     Boiler.FillStatus.subscribe(data.context)
+    PubSub.subscribe(data.context, :boiler_temp)
 
     next_state =
       case Boiler.FillStatus.check(data.context) do
         :full ->
-          :boot_warmup
+          :hold_temp
 
         :low ->
           # TODO: Go actually tell the pump to fill things
@@ -47,6 +55,19 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
       end
 
     {:next_state, next_state, data}
+  end
+
+  ## General Commands
+
+  def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
+    {response, data} =
+      if temp < 128 do
+        {:ok, %{data | target_temperature: temp}}
+      else
+        {{:error, :unsafe_temp}, data}
+      end
+
+    {:keep_state, data, [{:reply, from, response}]}
   end
 
   ## Boot Fill
@@ -64,17 +85,30 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
     end
   end
 
-  ## Boot Warmup
-  ######################
-
-  # Using a transition callback here is really handy since there are multiple pathways into
-  # this state.
-  def handle_event(:event, _old_state, :boot_warmup, _data) do
-    # TODO: Set the desired temp threshold in wherever controls that.
+  def handle_event(:info, {:broadcast, _, _}, :boot_fill, _) do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :boot_warmup, _data) do
+  ## Temp hold logic
+  ######################
+
+  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_temp, prev_data) do
+    data =
+      if val < prev_data.target_temperature do
+        %{prev_data | target_duty_cycle: 10}
+      else
+        %{prev_data | target_duty_cycle: 0}
+      end
+
+    if data.target_duty_cycle != prev_data.target_duty_cycle do
+      Logger.info("Changing duty cycle: #{data.target_duty_cycle}")
+      Boiler.DutyCycle.set(data.context, data.target_duty_cycle)
+    end
+
+    {:keep_state, data}
+  end
+
+  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :hold_temp, _data) do
     :keep_state_and_data
   end
 

@@ -1,6 +1,4 @@
 defmodule CoffeeTimeFirmware.Context do
-  alias Max31865.Registers
-
   defstruct [
     :registry,
     :pubsub,
