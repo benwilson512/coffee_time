@@ -24,6 +24,8 @@ defmodule CoffeeTimeFirmware.Boiler do
 
   @impl true
   def init(params) do
+    # Don't really like this pattern. I like having them as values passed in and not globals
+    # but this is still an awkward API.
     params =
       Map.put_new(params, :intervals, %{
         __MODULE__.TempProbe => %{read_interval: 500},
