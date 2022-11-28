@@ -10,4 +10,9 @@ defmodule Help do
   def context() do
     CoffeeTimeFirmware.Context.new(:rpi3)
   end
+
+  def __restart__() do
+    Application.stop(:coffee_time_firmware)
+    Application.start(:coffee_time_firmware)
+  end
 end

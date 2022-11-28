@@ -50,7 +50,8 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
           :hold_temp
 
         :low ->
-          # TODO: Go actually tell the pump to fill things
+          # TODO: BLOCKED BY RELAY
+          # Do the refill process here.
           :boot_fill
       end
 
@@ -92,7 +93,11 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   ## Temp hold logic
   ######################
 
+  # Boiler temp update
   def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_temp, prev_data) do
+    # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
+    # At that point this will certainly get extracted from this module, and may end up
+    # being its own process.
     data =
       if val < prev_data.target_temperature do
         %{prev_data | target_duty_cycle: 10}
@@ -108,8 +113,17 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
     {:keep_state, data}
   end
 
-  def handle_event(:info, {:broadcast, :fill_level_status, :full}, :hold_temp, _data) do
-    :keep_state_and_data
+  # Fill level status
+  def handle_event(:info, {:broadcast, :fill_level_status, status}, :hold_temp, _data) do
+    case status do
+      :full ->
+        :keep_state_and_data
+
+      :low ->
+        # TODO: BLOCKED BY RELAY
+        # Do the refill process here.
+        {:stop, "boiler low"}
+    end
   end
 
   def handle_event(:enter, old_state, new_state, data) do
