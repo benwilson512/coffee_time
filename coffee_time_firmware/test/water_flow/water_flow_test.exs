@@ -6,6 +6,8 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
   alias CoffeeTimeFirmware.WaterFlow
   alias CoffeeTimeFirmware.Hardware
 
+  @moduletag :pending
+
   setup %{context: context} do
     {:ok, _} =
       WaterFlow.start_link(%{
@@ -53,9 +55,5 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
       Hardware.Mock.set_fill_status(fill_status_pid, 1)
       assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
     end
-  end
-
-  defp unique_name() do
-    Module.concat(__MODULE__, to_string(:erlang.unique_integer([:positive])))
   end
 end
