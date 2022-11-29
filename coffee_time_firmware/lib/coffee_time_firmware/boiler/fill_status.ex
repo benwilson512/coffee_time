@@ -6,6 +6,9 @@ defmodule CoffeeTimeFirmware.Boiler.FillStatus do
 
   @moduledoc """
   Handles tracking the boiler fill level.
+
+  I'm not sure honestly whether this module belongs here or in the water flow area. It's a water
+  level sensor, so probably over there.
   """
 
   defstruct [:context, :gpio, :idle_read_interval, :refill_read_interval, status: :unknown]

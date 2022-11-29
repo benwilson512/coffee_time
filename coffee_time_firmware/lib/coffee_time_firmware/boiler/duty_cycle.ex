@@ -47,8 +47,6 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
-    Process.flag(:trap_exit, true)
-
     {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_duty_cycle_pin(context.hardware)
 
     state = %__MODULE__{
@@ -63,7 +61,8 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def terminate(reason, %{context: context, gpio: gpio}) do
-    CoffeeTimeFirmware.Hardware.write_gpio(context, gpio, 0)
+    IO.puts("Yo")
+    CoffeeTimeFirmware.Hardware.write_gpio(context.hardware, gpio, 0)
     {:stop, reason}
   end
 
@@ -85,6 +84,10 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     schedule_tick(state)
 
     {:noreply, inc(state), {:continue, :cycle}}
+  end
+
+  def handle_info({:EXIT, _pid, _}, state) do
+    {:noreply, state}
   end
 
   def handle_continue(:cycle, state) do

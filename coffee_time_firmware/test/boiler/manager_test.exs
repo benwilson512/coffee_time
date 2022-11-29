@@ -61,7 +61,7 @@ defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
 
       Hardware.Mock.set_fill_status(fill_status_pid, 1)
 
-      assert {:boot_warmup, _} = :sys.get_state(name(context, Manager))
+      assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
     end
 
     test "If the boiler is low we refill it. Upon refill we are in boot warmup", %{
@@ -72,10 +72,10 @@ defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
 
       Hardware.Mock.set_fill_status(fill_status_pid, 0)
 
-      assert {:boot_fill, _} = :sys.get_state(name(context, Manager))
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, Manager))
 
       Hardware.Mock.set_fill_status(fill_status_pid, 1)
-      assert {:boot_warmup, _} = :sys.get_state(name(context, Manager))
+      assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
     end
   end
 

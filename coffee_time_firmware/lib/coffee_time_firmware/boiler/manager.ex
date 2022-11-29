@@ -50,9 +50,9 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
           :hold_temp
 
         :low ->
-          # TODO: BLOCKED BY RELAY
-          # Do the refill process here.
-          :boot_fill
+          # This process does not enact boiler fill. Rather it relies on the water
+          # flow logic to refill things.
+          :awaiting_boiler_fill
       end
 
     {:next_state, next_state, data}
@@ -74,7 +74,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   ## Boot Fill
   ######################
 
-  def handle_event(:info, {:broadcast, :fill_level_status, status}, :boot_fill, data) do
+  def handle_event(:info, {:broadcast, :fill_level_status, status}, :awaiting_boiler_fill, data) do
     # IO.puts("received #{status}")
 
     case status do
