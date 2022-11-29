@@ -28,7 +28,7 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
 
     def read_cpu_temperature(_) do
       receive do
-        {:internal_temp, val} ->
+        {:cpu_temp, val} ->
           val
       end
     end

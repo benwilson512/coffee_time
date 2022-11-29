@@ -26,14 +26,14 @@ defmodule CoffeeTimeFirmware.Measurement do
       Map.put_new(params, :intervals, %{
         __MODULE__.BoilerTempProbe => %{read_interval: 500},
         __MODULE__.BoilerFillStatus => %{idle_read_interval: 1000, refill_read_interval: 100},
-        __MODULE__.PiInternals => %{read_interval: 2000}
+        __MODULE__.CpuTemp => %{read_interval: 2000}
       })
 
     children = [
       {__MODULE__.Store, params},
       {__MODULE__.BoilerFillStatus, params},
       {__MODULE__.BoilerTempProbe, params},
-      {__MODULE__.PiInternals, params}
+      {__MODULE__.CpuTemp, params}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

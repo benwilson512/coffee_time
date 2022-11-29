@@ -17,7 +17,7 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
     :ets
   ]
 
-  @type known_measurement() :: :boiler_temp | :boiler_fill_status | :pi_cpu_temp | :ambient
+  @type known_measurement() :: :boiler_temp | :boiler_fill_status | :cpu_temp | :ambient
 
   @spec put(CoffeeTimeFirmware.Context.t(), known_measurement, term) :: :ok
   def put(context, key, value) do

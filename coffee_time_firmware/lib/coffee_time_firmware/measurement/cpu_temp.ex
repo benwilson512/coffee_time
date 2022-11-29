@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.Measurement.PiInternals do
+defmodule CoffeeTimeFirmware.Measurement.CpuTemp do
   @moduledoc """
   Fetches the Pi CPU temp
   """
@@ -27,7 +27,7 @@ defmodule CoffeeTimeFirmware.Measurement.PiInternals do
     temp = CoffeeTimeFirmware.Hardware.read_cpu_temperature(state.context.hardware)
 
     # probably wrap in a try?
-    CoffeeTimeFirmware.PubSub.broadcast(state.context, :cpu_temp, temp)
+    CoffeeTimeFirmware.Measurement.Store.put(state.context, :cpu_temp, temp)
 
     {:noreply, state}
   end

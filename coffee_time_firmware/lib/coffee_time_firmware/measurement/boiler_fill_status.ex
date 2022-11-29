@@ -2,6 +2,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   use GenServer
   require Logger
 
+  alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Util
 
   @moduledoc """
@@ -19,14 +20,6 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
     )
   end
 
-  @pubsub_key :boiler_fill_level_status
-
-  def check(context) do
-    context
-    |> CoffeeTimeFirmware.Application.name(__MODULE__)
-    |> GenServer.call(:check)
-  end
-
   def init(%{context: context, intervals: %{__MODULE__ => intervals}}) do
     {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_fill_level(context.hardware)
 
@@ -42,25 +35,11 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
     {:ok, state}
   end
 
-  def handle_call(:check, _from, state) do
-    state =
-      case state.status do
-        :unknown ->
-          status = status_from_gpio(state)
-          %{state | status: status}
-
-        _ ->
-          state
-      end
-
-    {:reply, state.status, state}
-  end
-
   def handle_info(:tick, state) do
     status = status_from_gpio(state)
 
     if status != state.status do
-      CoffeeTimeFirmware.PubSub.broadcast(state.context, @pubsub_key, status)
+      Measurement.Store.put(state.context, :boiler_fill_status, status)
     end
 
     state = %{state | status: status}
