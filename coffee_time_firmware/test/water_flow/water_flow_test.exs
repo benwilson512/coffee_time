@@ -64,7 +64,7 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
     end
 
     test "we can pull some espresso", %{context: context} do
-      WaterFlow.drive_grouphead(context, {:timer, 0})
+      assert :ok = WaterFlow.drive_grouphead(context, {:timer, 0})
 
       assert_receive({:write_gpio, :refill_solenoid, 0})
       assert_receive({:write_gpio, :pump, 0})
@@ -73,6 +73,11 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
 
       assert_receive({:write_gpio, :refill_solenoid, 1})
       assert_receive({:write_gpio, :pump, 1})
+    end
+
+    test "calling drive group head while it's in progress does nothing", %{context: context} do
+      assert :ok = WaterFlow.drive_grouphead(context, {:timer, :infinity})
+      assert {:error, :busy} = WaterFlow.drive_grouphead(context, {:timer, :infinity})
     end
 
     test "pulling espresso delays boiler refill", %{context: context} do

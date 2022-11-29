@@ -150,6 +150,10 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     {:keep_state_and_data, :postpone}
   end
 
+  def handle_event({:call, from}, {:drive_grouphead, _}, :driving_grouphead, _data) do
+    {:keep_state_and_data, {:reply, from, {:error, :busy}}}
+  end
+
   def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
     %{context: context} = data
     Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 1)
