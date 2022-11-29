@@ -3,10 +3,11 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.WaterFlow
-  alias CoffeeTimeFirmware.Hardware
+  # alias CoffeeTimeFirmware.Hardware
 
-  @moduletag :pending
+  @moduletag :measurement_store
 
   setup %{context: context} do
     {:ok, _} =
@@ -14,18 +15,7 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
         context: context
       })
 
-    pids =
-      Map.new(
-        [
-          WaterFlow
-        ],
-        fn module ->
-          [{pid, _}] = Registry.lookup(context.registry, module)
-          {module, pid}
-        end
-      )
-
-    {:ok, %{context: context, pids: pids}}
+    {:ok, %{context: context}}
   end
 
   test "initial state is sane", %{context: context} do
@@ -33,27 +23,28 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
   end
 
   describe "boot process" do
-    test "if the boiler is full we go to idle", %{
-      context: context,
-      pids: %{WaterFlow => fill_status_pid}
+    test "if the boiler is full we go to the ready state", %{
+      context: context
     } do
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
       WaterFlow.boot(context)
-      Hardware.Mock.set_fill_status(fill_status_pid, 1)
-      assert {:idle, _} = :sys.get_state(name(context, WaterFlow))
+
+      assert {:ready, _} = :sys.get_state(name(context, WaterFlow))
     end
 
-    test "If the boiler is low we refill it. Upon refill we go back to idle", %{
-      context: context,
-      pids: %{WaterFlow => fill_status_pid}
+    @tag :pending
+    test "If the boiler is low we refill it. Upon refill we go back to ready", %{
+      context: context
     } do
+      Measurement.Store.put(context, :boiler_fill_status, :low)
       WaterFlow.boot(context)
 
-      Hardware.Mock.set_fill_status(fill_status_pid, 0)
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, WaterFlow))
 
-      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, Manager))
+      Measurement.Store.put(context, :boiler_fill_status, :full)
 
-      Hardware.Mock.set_fill_status(fill_status_pid, 1)
-      assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
+      assert {:ready, _} = :sys.get_state(name(context, WaterFlow))
     end
   end
 end

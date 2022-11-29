@@ -5,7 +5,7 @@ defmodule CoffeeTimeFirmware.WaterFlow do
 
   require Logger
   alias CoffeeTimeFirmware.PubSub
-  alias CoffeeTimeFirmware.Boiler
+  alias CoffeeTimeFirmware.Measurement
 
   @moduledoc """
   Handles controlling the solenoids and water pump.
@@ -47,10 +47,10 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   end
 
   def handle_event(:cast, :boot, :idle, data) do
-    Boiler.FillStatus.subscribe(data.context)
+    Measurement.Store.subscribe(data.context, :boiler_fill_status)
 
     next_state =
-      case Boiler.FillStatus.check(data.context) do
+      case Measurement.Store.fetch!(data.context, :boiler_fill_status) do
         :full ->
           :ready
 
