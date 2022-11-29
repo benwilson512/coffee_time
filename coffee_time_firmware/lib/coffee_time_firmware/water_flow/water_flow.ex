@@ -6,6 +6,7 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   require Logger
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
+  alias CoffeeTimeFirmware.Hardware
 
   @moduledoc """
   Handles controlling the solenoids and water pump.
@@ -21,7 +22,10 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   figure things out at that point.
   """
 
-  defstruct [:context]
+  defstruct [
+    :context,
+    gpio_pins: %{}
+  ]
 
   def boot(context) do
     context
@@ -42,7 +46,11 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   end
 
   def init(context) do
-    data = %__MODULE__{context: context}
+    data = %__MODULE__{
+      context: context,
+      gpio_pins: setup_gpio_pins(context.hardware)
+    }
+
     {:ok, :idle, data}
   end
 
@@ -55,29 +63,55 @@ defmodule CoffeeTimeFirmware.WaterFlow do
           :ready
 
         :low ->
-          # This process does not enact boiler fill. Rather it relies on the water
-          # flow logic to refill things.
           :boiler_filling
       end
 
     {:next_state, next_state, data}
   end
 
+  ## Boiler Filling
+  ##################
+
   def handle_event(:enter, old_state, :boiler_filling = new_state, %{context: context} = data) do
     log_state_transition(old_state, new_state)
 
-    CoffeeTimeFirmware.Hardware.write_gpio(context.hardware, data.refill_solenoid_gpio, 0)
-    CoffeeTimeFirmware.Hardware.write_gpio(context.hardware, data.pump_gpio, 0)
+    Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 0)
+    Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 0)
 
     PubSub.broadcast(context, :pump_status, :on)
 
     {:keep_state, data}
   end
 
+  def handle_event(
+        :info,
+        {:broadcast, :boiler_fill_status, status},
+        :boiler_filling,
+        %{context: context} = data
+      ) do
+    case status do
+      :low ->
+        :keep_state_and_data
+
+      :full ->
+        Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 1)
+        Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 1)
+
+        {:next_state, :ready, data}
+    end
+  end
+
   def handle_event(:enter, old_state, new_state, data) do
     log_state_transition(old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  defp setup_gpio_pins(hardware) do
+    Map.new([:refill_solenoid, :pump], fn pin_name ->
+      {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(hardware, pin_name)
+      {pin_name, gpio}
+    end)
   end
 
   defp log_state_transition(old_state, new_state) do
