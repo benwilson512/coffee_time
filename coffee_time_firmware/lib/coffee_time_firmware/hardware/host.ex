@@ -17,7 +17,7 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
       100.0
     end
 
-    def read_internal_temperature(_) do
+    def read_cpu_temperature(_) do
       35.0
     end
 

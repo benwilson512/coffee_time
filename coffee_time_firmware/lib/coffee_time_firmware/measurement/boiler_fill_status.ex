@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.Boiler.FillStatus do
+defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   use GenServer
   require Logger
 
@@ -19,11 +19,7 @@ defmodule CoffeeTimeFirmware.Boiler.FillStatus do
     )
   end
 
-  @pubsub_key :fill_level_status
-
-  def subscribe(context) do
-    CoffeeTimeFirmware.PubSub.subscribe(context, @pubsub_key)
-  end
+  @pubsub_key :boiler_fill_level_status
 
   def check(context) do
     context

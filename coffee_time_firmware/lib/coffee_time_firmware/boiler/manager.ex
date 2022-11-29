@@ -5,7 +5,6 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
   alias CoffeeTimeFirmware.Measurement
-  alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
 
   @moduledoc """

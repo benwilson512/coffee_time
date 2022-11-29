@@ -6,5 +6,5 @@ defprotocol CoffeeTimeFirmware.Hardware do
   def open_duty_cycle_pin(interface)
 
   def read_boiler_probe_temp(interface)
-  def read_internal_temperature(interface)
+  def read_cpu_temperature(interface)
 end

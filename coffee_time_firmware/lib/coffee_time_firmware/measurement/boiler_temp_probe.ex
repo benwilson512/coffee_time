@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.Boiler.TempProbe do
+defmodule CoffeeTimeFirmware.Measurement.BoilerTempProbe do
   @moduledoc """
   Fetches the Boiler temperature
   """
@@ -27,7 +27,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempProbe do
     temp = CoffeeTimeFirmware.Hardware.read_boiler_probe_temp(state.context.hardware)
 
     # probably wrap in a try?
-    CoffeeTimeFirmware.PubSub.broadcast(state.context, :boiler_temp, temp)
+    CoffeeTimeFirmware.Measurement.Store.put(state.context, :boiler_temp, temp)
 
     {:noreply, state}
   end

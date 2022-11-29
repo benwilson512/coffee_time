@@ -18,7 +18,7 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
     end
 
     @temperature_file "/sys/class/thermal/thermal_zone0/temp"
-    def read_internal_temperature(_) do
+    def read_cpu_temperature(_) do
       @temperature_file
       |> File.read!()
       |> String.trim()

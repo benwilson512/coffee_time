@@ -1,6 +1,18 @@
 defmodule CoffeeTimeFirmware.ContextCase do
   use ExUnit.CaseTemplate
 
+  using do
+    quote do
+      import unquote(__MODULE__), only: [lookup_pid: 2]
+      import CoffeeTimeFirmware.Application, only: [name: 2]
+    end
+  end
+
+  def lookup_pid(context, name) do
+    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid
+  end
+
   setup info do
     context = %CoffeeTimeFirmware.Context{
       registry: unique_name(),

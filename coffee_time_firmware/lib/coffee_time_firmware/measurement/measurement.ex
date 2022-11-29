@@ -1,36 +1,41 @@
 defmodule CoffeeTimeFirmware.Measurement do
   @moduledoc """
-  Handles steam boiler logic.
+  Centralizes general sensor measurements.
 
-  The logic for the steam boiler is broken into three components:
+  Various logic depends on being able to fetch the current value of various sensor measurements,
+  as well as subscribe to updates.
 
-  - `Boiler.DutyCycle` acts as a software PWM to control the actual GPIO to the solid state relay
-  - `Boiler.Control` is the PID cycle that translates the boiler temperature into a duty cycle
-
-  The choice to split these into three distinct GenServers came from the need to manage several independent timers.
-  The DutyCycle timer in particular has to be pretty strict since it controls the actual amount of power sent to the
-  heating element.
-
-
+  Importantly this module is only tracking inputs that you might consider "general" about the espresso
+  machine and its operating environment. Inputs specific to control buttons are still handled specifically
+  by their related module.
   """
 
   use Supervisor
 
-  def start_link(%{context: context}) do
-    Supervisor.start_link(__MODULE__, context,
+  def start_link(%{context: context} = params) do
+    Supervisor.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
   @impl true
-  def init(context) do
+  def init(params) do
+    # Don't really like this pattern. I like having them as values passed in and not globals
+    # but this is still an awkward API.
+    params =
+      Map.put_new(params, :intervals, %{
+        __MODULE__.BoilerTempProbe => %{read_interval: 500},
+        __MODULE__.BoilerFillStatus => %{idle_read_interval: 1000, refill_read_interval: 100},
+        __MODULE__.PiInternals => %{read_interval: 2000}
+      })
+
     children = [
-      {__MODULE__.Store, %{context: context}},
-      {__MODULE__.PiInternals, %{context: context}}
+      {__MODULE__.Store, params},
+      {__MODULE__.BoilerFillStatus, params},
+      {__MODULE__.BoilerTempProbe, params},
+      {__MODULE__.PiInternals, params}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
-
-  # defdelegate fetch_temp(), to: __MODULE__.Store
 end

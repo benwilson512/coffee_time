@@ -24,7 +24,7 @@ defmodule CoffeeTimeFirmware.Measurement.PiInternals do
     # as possible.
     set_timer(state)
 
-    temp = CoffeeTimeFirmware.Hardware.read_internal_temperature(state.context.hardware)
+    temp = CoffeeTimeFirmware.Hardware.read_cpu_temperature(state.context.hardware)
 
     # probably wrap in a try?
     CoffeeTimeFirmware.PubSub.broadcast(state.context, :cpu_temp, temp)

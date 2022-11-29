@@ -20,11 +20,17 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
     end
 
     def read_boiler_probe_temp(_) do
-      100.0
+      receive do
+        {:boiler_temp, val} ->
+          val
+      end
     end
 
-    def read_internal_temperature(_) do
-      35.0
+    def read_cpu_temperature(_) do
+      receive do
+        {:internal_temp, val} ->
+          val
+      end
     end
 
     def write_gpio(mock, gpio, val) do
