@@ -7,6 +7,7 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hardware
+  alias CoffeeTimeFirmware.Util
 
   @moduledoc """
   Handles controlling the solenoids and water pump.
@@ -33,10 +34,22 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     |> GenStateMachine.cast(:boot)
   end
 
-  def refill_boiler(_context) do
-  end
+  @doc """
+  Run water to the espresso group head.
 
-  def pull_espresso(_context) do
+  ```
+  # 20 seconds
+  drive_grouphead(context, {:timer, 20000})
+  # 20 seconds with a 3 second delay before the pump starts
+  drive_grouphead(context, {:timer, 20000, pump_delay: 3000})
+  ```
+
+  TOOD: Support `{:flow_ticks, n}`.
+  """
+  def drive_grouphead(context, mode) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call({:drive_grouphead, mode})
   end
 
   def start_link(%{context: context}) do
@@ -69,6 +82,27 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     {:next_state, next_state, data}
   end
 
+  ## Ready
+  ##################
+
+  def handle_event({:call, from}, {:drive_grouphead, mode}, :ready, data) do
+    %{context: context} = data
+
+    case mode do
+      {:timer, duration} ->
+        Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 0)
+        Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 0)
+
+        Util.send_after(self(), :halt_grouphead, duration)
+    end
+
+    {:next_state, :driving_grouphead, data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :ready, data) do
+    {:next_state, :boiler_filling, data}
+  end
+
   ## Boiler Filling
   ##################
 
@@ -83,12 +117,9 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     {:keep_state, data}
   end
 
-  def handle_event(
-        :info,
-        {:broadcast, :boiler_fill_status, status},
-        :boiler_filling,
-        %{context: context} = data
-      ) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :boiler_filling, data) do
+    %{context: context} = data
+
     case status do
       :low ->
         :keep_state_and_data
@@ -99,6 +130,31 @@ defmodule CoffeeTimeFirmware.WaterFlow do
 
         {:next_state, :ready, data}
     end
+  end
+
+  def handle_event({:call, from}, {:drive_grouphead, _}, :boiler_filling, _) do
+    {:keep_state_and_data, {:reply, from, {:error, :busy}}}
+  end
+
+  ## Grouphead Driving
+  #####################
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :driving_grouphead, _) do
+    {:keep_state_and_data, :postpone}
+  end
+
+  def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
+    %{context: context} = data
+    Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 1)
+    Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 1)
+    {:next_state, :ready, data}
+  end
+
+  ## Other
+  ##############
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :full}, _, _) do
+    :keep_state_and_data
   end
 
   def handle_event(:enter, old_state, new_state, data) do
