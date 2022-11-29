@@ -60,8 +60,11 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     {:ok, state}
   end
 
+  # This exists to handle clean exits, such as if the process or application is restarted manually in
+  # remote console. If it exits in an unexpected manner, it's the job of the `breakers` to initiate
+  # a restart, since that's the only safe way to guarantee that the gpio pin drops back to 0.
+  # TODO: Actually monitor this from breakers.
   def terminate(reason, %{context: context, gpio: gpio}) do
-    IO.puts("Yo")
     CoffeeTimeFirmware.Hardware.write_gpio(context.hardware, gpio, 0)
     {:stop, reason}
   end
