@@ -67,6 +67,9 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     {:ok, :idle, data}
   end
 
+  ## Idle
+  ####################
+
   def handle_event(:cast, :boot, :idle, data) do
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
 
@@ -80,6 +83,10 @@ defmodule CoffeeTimeFirmware.WaterFlow do
       end
 
     {:next_state, next_state, data}
+  end
+
+  def handle_event(_, _, :idle, _data) do
+    :keep_state_and_data
   end
 
   ## Ready
