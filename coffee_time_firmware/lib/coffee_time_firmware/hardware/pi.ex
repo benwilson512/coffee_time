@@ -1,22 +1,24 @@
 defmodule CoffeeTimeFirmware.Hardware.Pi do
-  defstruct boiler_fill_level_pin: 18, duty_cycle_pin: 16
+  # I wanted this in one place so that I could easily see how all of the pins are configured.
+  # The input vs output distinction as well as the options are deeply intertwined with the physical
+  # layout of the circuits. Whether it's a pull up or pull down resistor doesn't really matter
+  # for the logic of the genserver, but it's very important for the circuit.
+  @pin_layout %{
+    16 => {:duty_cycle, :output, initial_value: 0},
+    18 => {:boiler_fill_level_pin, :input, initial_value: 0, pull_mode: :pulldown}
+  }
+  defstruct pin_layout:
+              Map.new(@pin_layout, fn
+                {number, {name, io, opts}} ->
+                  {name, {number, io, opts}}
+              end)
 
   defimpl CoffeeTimeFirmware.Hardware do
-    def open_fill_level(host) do
-      Circuits.GPIO.open(host.boiler_fill_level_pin, :input,
-        initial_value: 0,
-        pull_mode: :pulldown
-      )
-    end
-
-    def open_duty_cycle_pin(host) do
-      Circuits.GPIO.open(host.duty_cycle_pin, :output, initial_value: 0)
-    end
-
     def read_boiler_probe_temp(_) do
       Max31865.get_temp()
     end
 
+    # 1 wire file "/sys/bus/w1/devices/28-00044a381bff/temperature"
     @temperature_file "/sys/class/thermal/thermal_zone0/temp"
     def read_cpu_temperature(_) do
       @temperature_file
@@ -24,6 +26,11 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
       |> String.trim()
       |> String.to_integer()
       |> Kernel./(1000)
+    end
+
+    def open_gpio(%{pin_layout: pin_layout}, key) do
+      {number, io, opts} = Map.fetch!(pin_layout, key)
+      Circuits.GPIO.open(number, io, opts)
     end
 
     def write_gpio(_, gpio, val) do

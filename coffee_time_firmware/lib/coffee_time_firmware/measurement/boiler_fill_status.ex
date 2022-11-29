@@ -21,7 +21,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => intervals}}) do
-    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_fill_level(context.hardware)
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :boiler_fill_status)
 
     state = %__MODULE__{
       context: context,

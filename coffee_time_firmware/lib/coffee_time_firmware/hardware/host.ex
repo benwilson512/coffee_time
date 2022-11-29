@@ -1,28 +1,30 @@
 defmodule CoffeeTimeFirmware.Hardware.Host do
-  defstruct boiler_fill_level_pin: 18, duty_cycle_pin: 16
+  @pin_layout %{
+    16 => {:duty_cycle, :output, initial_value: 0},
+    18 => {:boiler_fill_level, :input, initial_value: 0, pull_mode: :pulldown}
+  }
+  defstruct pin_layout:
+              Map.new(@pin_layout, fn
+                {number, {name, io, opts}} ->
+                  {name, {number, io, opts}}
+              end)
 
   # This module hasn't really been kept up to date. The Mock impl is in good shape
   # to make test work, and the Pi one obviously is set up to make the Pi work, but I'm
   # not really running this on the host machine much these days
 
   defimpl CoffeeTimeFirmware.Hardware do
-    def open_fill_level(host) do
-      Circuits.GPIO.open(host.boiler_fill_level_pin, :input,
-        initial_value: 0,
-        pull_mode: :pulldown
-      )
-    end
-
-    def open_duty_cycle_pin(host) do
-      Circuits.GPIO.open(host.duty_cycle_pin, :output)
-    end
-
     def read_boiler_probe_temp(_) do
       100.0
     end
 
     def read_cpu_temperature(_) do
       35.0
+    end
+
+    def open_gpio(%{pin_layout: pin_layout}, key) do
+      {number, io, opts} = Map.fetch!(pin_layout, key)
+      Circuits.GPIO.open(number, io, opts)
     end
 
     def write_gpio(_, gpio, val) do

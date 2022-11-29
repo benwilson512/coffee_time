@@ -5,6 +5,8 @@ defmodule CoffeeTimeFirmware.Measurement.CpuTemp do
 
   use GenServer
 
+  alias CoffeeTimeFirmware.Util
+
   defstruct [:context, target_interval: 200]
 
   def start_link(%{context: context}) do
@@ -26,17 +28,12 @@ defmodule CoffeeTimeFirmware.Measurement.CpuTemp do
 
     temp = CoffeeTimeFirmware.Hardware.read_cpu_temperature(state.context.hardware)
 
-    # probably wrap in a try?
     CoffeeTimeFirmware.Measurement.Store.put(state.context, :cpu_temp, temp)
 
     {:noreply, state}
   end
 
   defp set_timer(state) do
-    if state.target_interval < 75 do
-      raise "Target interval should never be less than 75ms because it takes that long to read the sensor"
-    else
-      Process.send_after(self(), :query, state.target_interval)
-    end
+    Util.send_after(self(), :query, state.target_interval)
   end
 end

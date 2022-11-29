@@ -36,7 +36,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
 
       for _i <- 0..(subdivisions + 1) do
         send(pid, :tick)
-        assert_receive({:write_gpio, :duty_cycle_stub, 0})
+        assert_receive({:write_gpio, :duty_cycle, 0})
       end
     end
 
@@ -46,7 +46,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
 
       for _i <- 0..(subdivisions + 1) do
         send(pid, :tick)
-        assert_receive({:write_gpio, :duty_cycle_stub, 1})
+        assert_receive({:write_gpio, :duty_cycle, 1})
       end
     end
   end
@@ -58,7 +58,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
       values =
         for _i <- 1..10 do
           send(pid, :tick)
-          assert_receive({:write_gpio, :duty_cycle_stub, val})
+          assert_receive({:write_gpio, :duty_cycle, val})
           val
         end
 
@@ -75,7 +75,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
         results =
           for _i <- 1..10 do
             send(pid, :tick)
-            assert_receive({:write_gpio, :duty_cycle_stub, val})
+            assert_receive({:write_gpio, :duty_cycle, val})
             val
           end
 

@@ -1,9 +1,8 @@
 defmodule CoffeeTimeFirmware.Hardware.Mock do
   defstruct [:pid]
 
-  def set_fill_status(pid, val, opts \\ []) do
-    send(pid, :tick)
-    send(pid, {:gpio_val, :fill_level_stub, val})
+  def set_gpio(pid, gpio, val, opts \\ []) do
+    send(pid, {:gpio_val, gpio, val})
 
     unless opts[:async] do
       :sys.get_state(pid)
@@ -11,14 +10,6 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
   end
 
   defimpl CoffeeTimeFirmware.Hardware do
-    def open_fill_level(_) do
-      {:ok, :fill_level_stub}
-    end
-
-    def open_duty_cycle_pin(_) do
-      {:ok, :duty_cycle_stub}
-    end
-
     def read_boiler_probe_temp(_) do
       receive do
         {:boiler_temp, val} ->
@@ -31,6 +22,10 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
         {:cpu_temp, val} ->
           val
       end
+    end
+
+    def open_gpio(_, key) do
+      {:ok, key}
     end
 
     def write_gpio(mock, gpio, val) do

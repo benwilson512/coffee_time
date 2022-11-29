@@ -47,7 +47,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
-    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_duty_cycle_pin(context.hardware)
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :duty_cycle)
 
     state = %__MODULE__{
       context: context,
