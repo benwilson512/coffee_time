@@ -1,6 +1,10 @@
 defmodule CoffeeTimeFirmware.Hardware.Host do
   defstruct boiler_fill_level_pin: 18, duty_cycle_pin: 16
 
+  # This module hasn't really been kept up to date. The Mock impl is in good shape
+  # to make test work, and the Pi one obviously is set up to make the Pi work, but I'm
+  # not really running this on the host machine much these days
+
   defimpl CoffeeTimeFirmware.Hardware do
     def open_fill_level(host) do
       Circuits.GPIO.open(host.boiler_fill_level_pin, :input,
