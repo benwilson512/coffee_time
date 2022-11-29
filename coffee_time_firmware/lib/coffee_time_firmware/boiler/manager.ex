@@ -4,6 +4,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
 
@@ -41,11 +42,11 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   end
 
   def handle_event(:cast, :boot, :idle, data) do
-    Boiler.FillStatus.subscribe(data.context)
-    PubSub.subscribe(data.context, :boiler_temp)
+    Measurement.Store.subscribe(data.context, :boiler_fill_status)
+    Measurement.Store.subscribe(data.context, :boiler_temp)
 
     next_state =
-      case Boiler.FillStatus.check(data.context) do
+      case Measurement.Store.fetch!(data.context, :boiler_fill_status) do
         :full ->
           :hold_temp
 
@@ -74,7 +75,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   ## Boot Fill
   ######################
 
-  def handle_event(:info, {:broadcast, :fill_level_status, status}, :awaiting_boiler_fill, data) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
     # IO.puts("received #{status}")
 
     case status do
@@ -114,7 +115,7 @@ defmodule CoffeeTimeFirmware.Boiler.Manager do
   end
 
   # Fill level status
-  def handle_event(:info, {:broadcast, :fill_level_status, status}, :hold_temp, _data) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, _data) do
     case status do
       :full ->
         :keep_state_and_data
