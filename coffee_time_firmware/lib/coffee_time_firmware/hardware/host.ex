@@ -1,7 +1,7 @@
 defmodule CoffeeTimeFirmware.Hardware.Host do
   @pin_layout %{
     16 => {:duty_cycle, :output, initial_value: 0},
-    18 => {:boiler_fill_level, :input, initial_value: 0, pull_mode: :pulldown}
+    18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown}
   }
   defstruct pin_layout:
               Map.new(@pin_layout, fn
