@@ -68,6 +68,14 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
     end)
   end
 
+  def dump(context) do
+    [{_, ets}] = Registry.lookup(context.registry, :measurement_ets)
+
+    ets
+    |> :ets.tab2list()
+    |> Enum.sort()
+  end
+
   def start_link(%{context: context}) do
     GenServer.start_link(__MODULE__, context,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
