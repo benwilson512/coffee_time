@@ -66,12 +66,12 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
     test "we can pull some espresso", %{context: context} do
       assert :ok = WaterFlow.drive_grouphead(context, {:timer, 0})
 
-      assert_receive({:write_gpio, :refill_solenoid, 0})
+      assert_receive({:write_gpio, :grouphead_solenoid, 0})
       assert_receive({:write_gpio, :pump, 0})
 
       assert {:driving_grouphead, _} = :sys.get_state(name(context, WaterFlow))
 
-      assert_receive({:write_gpio, :refill_solenoid, 1})
+      assert_receive({:write_gpio, :grouphead_solenoid, 1})
       assert_receive({:write_gpio, :pump, 1})
     end
 
@@ -84,11 +84,12 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
       WaterFlow.drive_grouphead(context, {:timer, :infinity})
       Measurement.Store.put(context, :boiler_fill_status, :low)
       # we wait for the grouphead to cycle
-      assert_receive({:write_gpio, :refill_solenoid, 0})
+      assert_receive({:write_gpio, :grouphead_solenoid, 0})
       send(lookup_pid(context, WaterFlow), :halt_grouphead)
-      assert_receive({:write_gpio, :refill_solenoid, 1})
+      assert_receive({:write_gpio, :grouphead_solenoid, 1})
 
       assert {:boiler_filling, _} = :sys.get_state(name(context, WaterFlow))
+      assert_receive({:write_gpio, :refill_solenoid, 0})
     end
   end
 

@@ -5,7 +5,9 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
   # for the logic of the genserver, but it's very important for the circuit.
   @pin_layout %{
     16 => {:duty_cycle, :output, initial_value: 0},
-    18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown}
+    18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
+    20 => {:refill_solenoid, :input, initial_value: 1, pull_mode: :pullup},
+    21 => {:grouphead_solenoid, :input, initial_value: 1, pull_mode: :pullup}
   }
   defstruct pin_layout:
               Map.new(@pin_layout, fn

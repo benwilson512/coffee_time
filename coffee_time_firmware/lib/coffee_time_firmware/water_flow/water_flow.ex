@@ -93,13 +93,8 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   ##################
 
   def handle_event({:call, from}, {:drive_grouphead, mode}, :ready, data) do
-    %{context: context} = data
-
     case mode do
       {:timer, duration} ->
-        Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 0)
-        Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 0)
-
         Util.send_after(self(), :halt_grouphead, duration)
     end
 
@@ -146,6 +141,12 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   ## Grouphead Driving
   #####################
 
+  def handle_event(:enter, _, :driving_grouphead, %{context: context, gpio_pins: gpio_pins}) do
+    Hardware.write_gpio(context.hardware, gpio_pins.grouphead_solenoid, 0)
+    Hardware.write_gpio(context.hardware, gpio_pins.pump, 0)
+    :keep_state_and_data
+  end
+
   def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :driving_grouphead, _) do
     {:keep_state_and_data, :postpone}
   end
@@ -156,7 +157,7 @@ defmodule CoffeeTimeFirmware.WaterFlow do
 
   def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
     %{context: context} = data
-    Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 1)
+    Hardware.write_gpio(context.hardware, data.gpio_pins.grouphead_solenoid, 1)
     Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 1)
     {:next_state, :ready, data}
   end
@@ -175,7 +176,7 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   end
 
   defp setup_gpio_pins(hardware) do
-    Map.new([:refill_solenoid, :pump], fn pin_name ->
+    Map.new([:grouphead_solenoid, :refill_solenoid, :pump], fn pin_name ->
       {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(hardware, pin_name)
       {pin_name, gpio}
     end)
