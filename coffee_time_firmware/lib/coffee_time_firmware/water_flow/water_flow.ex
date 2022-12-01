@@ -112,27 +112,23 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   ## Boiler Filling
   ##################
 
-  def handle_event(:enter, old_state, :boiler_filling = new_state, %{context: context} = data) do
+  def handle_event(:enter, old_state, :boiler_filling = new_state, data) do
     log_state_transition(old_state, new_state)
 
-    Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 0)
-    Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 0)
-
-    PubSub.broadcast(context, :pump_status, :on)
+    refill_solenoid_open!(data)
+    pump_on!(data)
 
     {:keep_state, data}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :boiler_filling, data) do
-    %{context: context} = data
-
     case status do
       :low ->
         :keep_state_and_data
 
       :full ->
-        Hardware.write_gpio(context.hardware, data.gpio_pins.refill_solenoid, 1)
-        Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 1)
+        refill_solenoid_close!(data)
+        pump_off!(data)
 
         {:next_state, :ready, data}
     end
@@ -145,9 +141,9 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   ## Grouphead Driving
   #####################
 
-  def handle_event(:enter, _, :driving_grouphead, %{context: context, gpio_pins: gpio_pins}) do
-    Hardware.write_gpio(context.hardware, gpio_pins.grouphead_solenoid, 0)
-    Hardware.write_gpio(context.hardware, gpio_pins.pump, 0)
+  def handle_event(:enter, _, :driving_grouphead, data) do
+    grouphead_solenoid_open!(data)
+    pump_on!(data)
     :keep_state_and_data
   end
 
@@ -160,9 +156,8 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   end
 
   def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
-    %{context: context} = data
-    Hardware.write_gpio(context.hardware, data.gpio_pins.grouphead_solenoid, 1)
-    Hardware.write_gpio(context.hardware, data.gpio_pins.pump, 1)
+    pump_off!(data)
+    grouphead_solenoid_close!(data)
     {:next_state, :ready, data}
   end
 
@@ -177,6 +172,38 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     log_state_transition(old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  ## These should probably get extracted to Hardware maybe?
+
+  defp pump_on!(%{context: context, gpio_pins: %{pump: pump}}) do
+    Hardware.write_gpio(context.hardware, pump, 0)
+    PubSub.broadcast(context, :pump, :on)
+  end
+
+  defp pump_off!(%{context: context, gpio_pins: %{pump: pump}}) do
+    Hardware.write_gpio(context.hardware, pump, 1)
+    PubSub.broadcast(context, :pump, :off)
+  end
+
+  defp grouphead_solenoid_open!(%{context: context, gpio_pins: %{grouphead_solenoid: gpio}}) do
+    Hardware.write_gpio(context.hardware, gpio, 0)
+    PubSub.broadcast(context, :grouphead_solenoid, :open)
+  end
+
+  defp grouphead_solenoid_close!(%{context: context, gpio_pins: %{grouphead_solenoid: gpio}}) do
+    Hardware.write_gpio(context.hardware, gpio, 1)
+    PubSub.broadcast(context, :grouphead_solenoid, :close)
+  end
+
+  defp refill_solenoid_open!(%{context: context, gpio_pins: %{refill_solenoid: gpio}}) do
+    Hardware.write_gpio(context.hardware, gpio, 0)
+    PubSub.broadcast(context, :refill_solenoid, :open)
+  end
+
+  defp refill_solenoid_close!(%{context: context, gpio_pins: %{refill_solenoid: gpio}}) do
+    Hardware.write_gpio(context.hardware, gpio, 1)
+    PubSub.broadcast(context, :refill_solenoid, :close)
   end
 
   defp setup_gpio_pins(hardware) do
