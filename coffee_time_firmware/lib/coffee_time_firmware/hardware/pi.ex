@@ -4,10 +4,12 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
   # layout of the circuits. Whether it's a pull up or pull down resistor doesn't really matter
   # for the logic of the genserver, but it's very important for the circuit.
   @pin_layout %{
-    16 => {:duty_cycle, :output, initial_value: 0},
+    16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
     18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
-    20 => {:refill_solenoid, :input, initial_value: 1, pull_mode: :pullup},
-    21 => {:grouphead_solenoid, :input, initial_value: 1, pull_mode: :pullup}
+    20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},
+    21 => {:grouphead_solenoid, :output, initial_value: 1, pull_mode: :pullup},
+    22 => {:duty_cycle, :output, initial_value: 0},
+    26 => {:flow_meter, :input, initial_value: 0, pull_mode: :pulldown}
   }
   defstruct pin_layout:
               Map.new(@pin_layout, fn

@@ -85,6 +85,10 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     {:next_state, next_state, data}
   end
 
+  def handle_event({:call, from}, _, :idle, _data) do
+    {:keep_state_and_data, {:reply, from, {:error, :not_yet_booted}}}
+  end
+
   def handle_event(_, _, :idle, _data) do
     :keep_state_and_data
   end

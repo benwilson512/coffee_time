@@ -26,7 +26,8 @@ defmodule CoffeeTimeFirmware.Application do
        %{context: context, config: CoffeeTimeFirmware.Context.breaker_config()}},
       pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
       {CoffeeTimeFirmware.Measurement, %{context: context}},
-      {CoffeeTimeFirmware.Boiler, %{context: context}}
+      {CoffeeTimeFirmware.Boiler, %{context: context}},
+      {CoffeeTimeFirmware.WaterFlow, %{context: context}}
     ]
     |> List.flatten()
   end
