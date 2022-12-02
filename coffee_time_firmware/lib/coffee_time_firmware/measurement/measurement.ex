@@ -32,6 +32,7 @@ defmodule CoffeeTimeFirmware.Measurement do
     children = [
       {__MODULE__.Store, params},
       {__MODULE__.BoilerFillStatus, params},
+      {__MODULE__.Max31865Server, [rtd_wires: 4, spi_device_cs_pin: 0]},
       {__MODULE__.BoilerTempProbe, params},
       {__MODULE__.CpuTemp, params}
     ]

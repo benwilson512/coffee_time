@@ -1,4 +1,6 @@
 defmodule CoffeeTimeFirmware.Context do
+  alias VintageNet.Application
+
   defstruct [
     :registry,
     :pubsub,
@@ -10,6 +12,8 @@ defmodule CoffeeTimeFirmware.Context do
           pubsub: atom(),
           hardware: module()
         }
+
+  # some of these functions should probably get moved to regular config.
 
   def new(:host) do
     %CoffeeTimeFirmware.Context{
@@ -32,12 +36,32 @@ defmodule CoffeeTimeFirmware.Context do
     pid
   end
 
-  def breaker_config() do
+  def watchdog_config(:rpi3) do
     %{
-      shutdown_override_gpio: 13,
-      fault_deadlines: %{
-        boiler_temp_update: :timer.seconds(10)
+      fault_file_path: "/data/fault.json",
+      deadline: %{
+        pump: :timer.seconds(60),
+        grouphead_solenoid: :timer.seconds(60),
+        refill_solenoid: :timer.seconds(60)
+      },
+      healthcheck: %{
+        cpu_temp: :timer.seconds(10),
+        boiler_temp: :timer.seconds(5),
+        boiler_fill_status: :timer.seconds(5)
+      },
+      threshold: %{
+        cpu_temp: 50,
+        boiler_temp: 130
       }
     }
+  end
+
+  def watchdog_config(:host) do
+    path =
+      :code.priv_dir(:coffee_time_firmware)
+      |> Path.join("fault.json")
+
+    watchdog_config(:rpi3)
+    |> Map.replace!(:fault_file_path, path)
   end
 end

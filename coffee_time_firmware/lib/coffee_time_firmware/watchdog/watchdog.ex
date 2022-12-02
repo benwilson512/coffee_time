@@ -15,12 +15,10 @@ defmodule CoffeeTimeFirmware.Watchdog do
     :context,
     :fault,
     :fault_file_path,
+    deadline: %{},
+    healthcheck: %{},
+    threshold: %{},
     reboot_on_fault: true,
-    time_limits: %{
-      pump: :timer.seconds(60),
-      grouphead_solenoid: :timer.seconds(60),
-      refill_solenoid: :timer.seconds(60)
-    },
     timers: %{}
   ]
 
@@ -67,9 +65,21 @@ defmodule CoffeeTimeFirmware.Watchdog do
       |> struct!(config)
       |> populate_initial_fault_state
 
-    CoffeeTimeFirmware.PubSub.subscribe(context, "*")
+    state =
+      if !state.fault do
+        CoffeeTimeFirmware.PubSub.subscribe(context, "*")
+        init_healthchecks(state)
+      else
+        state
+      end
 
     {:ok, state}
+  end
+
+  defp init_healthchecks(state) do
+    Enum.reduce(state.healthcheck, state, fn {k, _}, state ->
+      set_timer(state, :healthcheck, k)
+    end)
   end
 
   def handle_call(:get_fault, _from, %{fault: fault} = state) do
@@ -82,23 +92,32 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
   def handle_call(:clear_fault, _from, state) do
     File.rm!(state.fault_file_path)
+    CoffeeTimeFirmware.PubSub.subscribe(state.context, "*")
+
     {:reply, :cleared, state}
   end
 
-  def handle_info({:waterflow_timeout, component}, state) do
-    state = set_fault(state, "water flow component timeout: #{inspect(component)}")
-    {:noreply, state}
+  def handle_info({:timer_expired, {type, key}}, state) do
+    message =
+      case type do
+        :deadline -> "Deadline failed timeout: #{inspect(key)}"
+        :healthcheck -> "Healthcheck failed timeout: #{inspect(key)}"
+      end
+
+    {:stop, :fault, set_fault(state, message)}
   end
 
   def handle_info({:broadcast, :boiler_temp, val}, state) do
-    state =
-      if val > 130 do
-        set_fault(state, "boiler over temp: #{val}")
-      else
+    if val > 130 do
+      {:stop, :fault, set_fault(state, "boiler over temp: #{val}")}
+    else
+      state =
         state
-      end
+        |> cancel_timer(:healthcheck, :boiler_temp)
+        |> set_timer(:healthcheck, :boiler_temp)
 
-    {:noreply, state}
+      {:noreply, state}
+    end
   end
 
   @state_toggles [
@@ -109,33 +128,44 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
   for {component, [{on_state, off_state}]} <- @state_toggles do
     def handle_info({:broadcast, unquote(component) = component, unquote(on_state)}, state) do
-      handle_toggle_on(state, component)
+      {:noreply, set_timer(state, :deadline, component)}
     end
 
     def handle_info({:broadcast, unquote(component) = component, unquote(off_state)}, state) do
-      handle_toggle_off(state, component)
+      {:noreply, cancel_timer(state, :deadline, component)}
     end
   end
 
-  defp handle_toggle_on(state, component) do
-    time = Map.fetch!(state.time_limits, component)
-    timer = Util.send_after(self(), {:waterflow_timeout, component}, time)
-
-    state = put_in(state.timers[component], timer)
-
+  def handle_info(_, state) do
     {:noreply, state}
   end
 
-  def handle_toggle_off(state, component) do
-    if timer = state.timers[component] do
+  defp set_timer(state, type, key) do
+    time =
+      case state do
+        %{
+          ^type => %{^key => time}
+        } ->
+          time
+
+        _ ->
+          raise "No timer configuration found for #{type}, #{key}"
+      end
+
+    timer = Util.send_after(self(), {:timer_expired, {type, key}}, time)
+
+    put_in(state.timers[{type, key}], timer)
+  end
+
+  defp cancel_timer(state, type, key) do
+    if timer = state.timers[{type, key}] do
       Process.cancel_timer(timer)
     end
 
-    state = put_in(state.timers[component], nil)
-    {:noreply, state}
+    put_in(state.timers[{type, key}], nil)
   end
 
-  def set_fault(state, fault) do
+  def set_fault(%{fault: nil} = state, fault) do
     fault = %__MODULE__.Fault{
       message: fault,
       occurred_at: DateTime.utc_now()
@@ -148,6 +178,16 @@ defmodule CoffeeTimeFirmware.Watchdog do
     end
 
     %{state | fault: fault}
+  end
+
+  def set_fault(%{fault: existing_fault} = state, new_fault) do
+    Logger.error("""
+    Faults stacking up
+    Existing: #{inspect(existing_fault)}
+    New: #{inspect(new_fault)}
+    """)
+
+    state
   end
 
   def populate_initial_fault_state(state) do

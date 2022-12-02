@@ -1,7 +1,7 @@
 defmodule CoffeeTimeFirmware.WatchdogTest do
   use CoffeeTimeFirmware.ContextCase, async: true
 
-  import CoffeeTimeFirmware.Application, only: [name: 2]
+  # import CoffeeTimeFirmware.Application, only: [name: 2]
 
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Watchdog
@@ -42,66 +42,82 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
   end
 
+  @moduletag capture_log: true
   describe "basic fault condition tests" do
     setup :setup_watchdog
 
-    test "boiler overtemp faults", %{context: context} do
+    @tag healthcheck: %{boiler_temp: 10}
+    test "boiler overtemp faults", %{watchdog_pid: pid, context: context} do
       PubSub.broadcast(context, :boiler_temp, 131)
-      :sys.get_state(name(context, Watchdog))
+
+      assert_receive({:DOWN, _, :process, ^pid, :fault})
+      Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
                message: "boiler over temp: 131"
              } = Watchdog.get_fault(context)
     end
 
+    @tag deadline: %{pump: 10}
     test "pump on too long faults", %{context: context} do
       PubSub.broadcast(context, :pump, :on)
 
-      Process.sleep(20)
+      assert_receive({:DOWN, _, :process, _, :fault})
+      Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
-               message: "water flow component timeout: :pump"
+               message: "Deadline failed timeout: :pump"
              } = Watchdog.get_fault(context)
     end
 
+    @tag deadline: %{refill_solenoid: 10}
     test "refill solenoid on long faults", %{context: context} do
       PubSub.broadcast(context, :refill_solenoid, :open)
 
-      Process.sleep(20)
+      assert_receive({:DOWN, _, :process, _, :fault})
+      Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
-               message: "water flow component timeout: :refill_solenoid"
+               message: "Deadline failed timeout: :refill_solenoid"
              } = Watchdog.get_fault(context)
     end
 
+    @tag deadline: %{grouphead_solenoid: 10}
     test "grouphead solenoid on long faults", %{context: context} do
       PubSub.broadcast(context, :grouphead_solenoid, :open)
 
-      Process.sleep(20)
+      assert_receive({:DOWN, _, :process, _, :fault})
+      Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
-               message: "water flow component timeout: :grouphead_solenoid"
+               message: "Deadline failed timeout: :grouphead_solenoid"
              } = Watchdog.get_fault(context)
     end
   end
 
-  defp setup_watchdog(%{context: context}) do
+  defp setup_watchdog(%{context: context} = params) do
     path = Briefly.create!()
 
-    {:ok, _} =
-      Watchdog.start_link(%{
-        context: context,
-        config: %{
-          reboot_on_fault: false,
-          fault_file_path: path,
-          time_limits: %{
-            pump: 10,
-            grouphead_solenoid: 10,
-            refill_solenoid: 10
-          }
-        }
-      })
+    pid =
+      start_supervised!(
+        {Watchdog,
+         %{
+           context: context,
+           config: %{
+             reboot_on_fault: false,
+             fault_file_path: path,
+             healthcheck: params[:healthcheck] || %{},
+             deadline: params[:deadline] || %{},
+             threshold: %{
+               cpu_temp: 50,
+               boiler_temp: 130
+             }
+           }
+         }}
+      )
 
-    {:ok, %{context: context, fault_file_path: path}}
+    Process.monitor(pid)
+
+    {:ok, %{watchdog_pid: pid, context: context, fault_file_path: path}}
   end
 end

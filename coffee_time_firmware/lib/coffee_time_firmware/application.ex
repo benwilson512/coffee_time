@@ -1,15 +1,11 @@
 defmodule CoffeeTimeFirmware.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
 
   @impl true
   def start(_type, _args) do
-    # See https://hexdocs.pm/elixir/Supervisor.html
-    # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: CoffeeTimeFirmware.Supervisor]
+    opts = [strategy: :rest_for_one, name: CoffeeTimeFirmware.Supervisor]
 
     context = CoffeeTimeFirmware.Context.new(target())
 
@@ -22,9 +18,8 @@ defmodule CoffeeTimeFirmware.Application do
     [
       {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
       {Registry, keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
-      {CoffeeTimeFirmware.Breakers,
-       %{context: context, config: CoffeeTimeFirmware.Context.breaker_config()}},
-      pi_only({Max31865.Server, [rtd_wires: 4, spi_device_cs_pin: 0]}),
+      {CoffeeTimeFirmware.Watchdog,
+       %{context: context, config: CoffeeTimeFirmware.Context.watchdog_config(target())}},
       {CoffeeTimeFirmware.Measurement, %{context: context}},
       {CoffeeTimeFirmware.Boiler, %{context: context}},
       {CoffeeTimeFirmware.WaterFlow, %{context: context}}
