@@ -4,9 +4,10 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   @moduledoc """
   Applies a duty cycle to the boiler.
-  """
 
-  defstruct [:context, :gpio, :write_interval, duty_cycle: 0, counter: 1, subdivisions: 10]
+  There's some interesting nuance here when trying to rapidly switch an AC
+  """
+  defstruct [:context, :gpio, write_interval: 100, duty_cycle: 0, counter: 1, subdivisions: 10]
 
   def set(context, int) when int in 0..10 do
     Logger.info("""

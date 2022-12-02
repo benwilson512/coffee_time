@@ -1,18 +1,21 @@
-defmodule CoffeeTimeFirmware.WatchDog do
+defmodule CoffeeTimeFirmware.Watchdog do
+  @moduledoc """
+  Identifies and logs faults, rebooting the pi if any are found.
+  """
+
   use GenServer
 
   require Logger
 
   alias CoffeeTimeFirmware.Util
 
-  @moduledoc """
-  Identifies and logs faults, rebooting the pi if any are found.
-  """
+  import CoffeeTimeFirmware.Application, only: [name: 2]
 
   defstruct [
     :context,
     :fault,
     :fault_file_path,
+    reboot_on_fault: true,
     time_limits: %{
       pump: :timer.seconds(60),
       grouphead_solenoid: :timer.seconds(60),
@@ -20,6 +23,35 @@ defmodule CoffeeTimeFirmware.WatchDog do
     },
     timers: %{}
   ]
+
+  @doc """
+  Clears a fault and then restarts the application.
+
+  This is designed to be called manually as it normally reboots the pi.
+  """
+  def clear_fault!(context, opts \\ []) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:clear_fault)
+    |> case do
+      :cleared ->
+        if Keyword.get(opts, :reboot, true) do
+          :init.stop()
+          :rebooting
+        else
+          :cleared
+        end
+
+      :no_fault ->
+        :no_fault
+    end
+  end
+
+  def get_fault(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:get_fault)
+  end
 
   def start_link(%{context: context} = params) do
     GenServer.start_link(__MODULE__, params,
@@ -33,10 +65,24 @@ defmodule CoffeeTimeFirmware.WatchDog do
         context: context
       }
       |> struct!(config)
+      |> populate_initial_fault_state
 
     CoffeeTimeFirmware.PubSub.subscribe(context, "*")
 
-    {:ok, state, {:continue, :maybe_fault}}
+    {:ok, state}
+  end
+
+  def handle_call(:get_fault, _from, %{fault: fault} = state) do
+    {:reply, fault, state}
+  end
+
+  def handle_call(:clear_fault, _from, %{fault: nil} = state) do
+    {:reply, :no_fault, state}
+  end
+
+  def handle_call(:clear_fault, _from, state) do
+    File.rm!(state.fault_file_path)
+    {:reply, :cleared, state}
   end
 
   @water_flow_components [
@@ -67,21 +113,53 @@ defmodule CoffeeTimeFirmware.WatchDog do
   end
 
   def handle_info({:waterflow_timeout, component}, state) do
-    # something
-    record_fault!(state, "water flow component timeout: #{inspect(component)}")
+    state = set_fault(state, "water flow component timeout: #{inspect(component)}")
     {:noreply, state}
   end
 
   def handle_info({:broadcast, :boiler_temp, val}, state) do
-    if val > 130 do
-      record_fault!(state, "boiler over temp")
-    end
+    state =
+      if val > 130 do
+        set_fault(state, "boiler over temp: #{val}")
+      else
+        state
+      end
 
     {:noreply, state}
   end
 
-  def record_fault!(state, fault) do
-    File.write!(state.fault_file_path, fault)
-    # probably should do something process tree related here too
+  def set_fault(state, fault) do
+    fault = %__MODULE__.Fault{
+      message: fault,
+      occurred_at: DateTime.utc_now()
+    }
+
+    File.write!(state.fault_file_path, Jason.encode!(fault))
+
+    if state.reboot_on_fault do
+      :init.stop()
+    end
+
+    %{state | fault: fault}
+  end
+
+  def populate_initial_fault_state(state) do
+    case File.read(state.fault_file_path) do
+      {:ok, ""} ->
+        state
+
+      {:ok, contents} ->
+        # intentionally assertive here. If the fault file exists and we can't make sense of it, then
+        # who know's what's up, we should crash.
+        fault =
+          contents
+          |> Jason.decode!()
+          |> __MODULE__.Fault.from_json!()
+
+        %{state | fault: fault}
+
+      _ ->
+        state
+    end
   end
 end
