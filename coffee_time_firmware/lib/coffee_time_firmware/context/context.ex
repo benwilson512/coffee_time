@@ -1,6 +1,4 @@
 defmodule CoffeeTimeFirmware.Context do
-  alias VintageNet.Application
-
   defstruct [
     :registry,
     :pubsub,
