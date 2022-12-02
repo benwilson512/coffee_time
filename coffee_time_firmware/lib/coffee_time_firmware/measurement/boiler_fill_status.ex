@@ -38,9 +38,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   def handle_info(:tick, state) do
     status = status_from_gpio(state)
 
-    if status != state.status do
-      Measurement.Store.put(state.context, :boiler_fill_status, status)
-    end
+    Measurement.Store.put(state.context, :boiler_fill_status, status)
 
     state = %{state | status: status}
 

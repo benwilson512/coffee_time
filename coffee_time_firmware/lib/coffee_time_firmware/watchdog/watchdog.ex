@@ -30,7 +30,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   def clear_fault!(context, opts \\ []) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call(:clear_fault)
+    |> GenServer.call(:clear_fault)
     |> case do
       :cleared ->
         if Keyword.get(opts, :reboot, true) do
@@ -48,7 +48,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   def get_fault(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call(:get_fault)
+    |> GenServer.call(:get_fault)
   end
 
   def start_link(%{context: context} = params) do
@@ -70,6 +70,11 @@ defmodule CoffeeTimeFirmware.Watchdog do
         CoffeeTimeFirmware.PubSub.subscribe(context, "*")
         init_healthchecks(state)
       else
+        Logger.error("""
+        Booting into fault state:
+        #{inspect(state.fault)}
+        """)
+
         state
       end
 
@@ -92,9 +97,11 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
   def handle_call(:clear_fault, _from, state) do
     File.rm!(state.fault_file_path)
-    CoffeeTimeFirmware.PubSub.subscribe(state.context, "*")
+    {:reply, :cleared, state, {:continue, :restart_self}}
+  end
 
-    {:reply, :cleared, state}
+  def handle_continue(:restart_self, state) do
+    {:stop, :normal, state}
   end
 
   def handle_info({:timer_expired, {type, key}}, state) do
@@ -118,6 +125,28 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
       {:noreply, state}
     end
+  end
+
+  def handle_info({:broadcast, :cpu_temp, val}, state) do
+    if val > 130 do
+      {:stop, :fault, set_fault(state, "boiler over temp: #{val}")}
+    else
+      state =
+        state
+        |> cancel_timer(:healthcheck, :cpu_temp)
+        |> set_timer(:healthcheck, :cpu_temp)
+
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:broadcast, :boiler_fill_status, _}, state) do
+    state =
+      state
+      |> cancel_timer(:healthcheck, :boiler_fill_status)
+      |> set_timer(:healthcheck, :boiler_fill_status)
+
+    {:noreply, state}
   end
 
   @state_toggles [

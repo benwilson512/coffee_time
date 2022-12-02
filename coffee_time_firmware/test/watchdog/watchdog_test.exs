@@ -6,6 +6,8 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Watchdog
 
+  @moduletag capture_log: true
+
   describe "init/1" do
     test "no fault file means no fault", %{context: context} do
       assert {:ok, _} =
@@ -42,27 +44,89 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
   end
 
-  @moduletag capture_log: true
-  describe "basic fault condition tests" do
+  describe "healthchecks" do
     setup :setup_watchdog
 
     @tag healthcheck: %{boiler_temp: 10}
-    test "boiler overtemp faults", %{watchdog_pid: pid, context: context} do
-      PubSub.broadcast(context, :boiler_temp, 131)
-
-      assert_receive({:DOWN, _, :process, ^pid, :fault})
+    test "boiler delay faults", %{context: context} do
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
       Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
-               message: "boiler over temp: 131"
+               message: "Healthcheck failed timeout: :boiler_temp"
              } = Watchdog.get_fault(context)
     end
+
+    @tag healthcheck: %{boiler_temp: 10}
+
+    test "boiler temp ping makes it happy", %{context: context} do
+      Process.sleep(8)
+      PubSub.broadcast(context, :boiler_temp, 120)
+      Process.sleep(8)
+      # Even though we've slept for 16 total milliseconds which exceesd the 10ms limit,
+      # we should still be OK because we got a ping in the middle which resets the timer
+      assert nil == Watchdog.get_fault(context)
+    end
+
+    @tag healthcheck: %{cpu_temp: 10}
+    test "cpu temp delay faults", %{context: context} do
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "Healthcheck failed timeout: :cpu_temp"
+             } = Watchdog.get_fault(context)
+    end
+
+    @tag healthcheck: %{cpu_temp: 10}
+
+    test "cpu_temp ping makes it happy", %{context: context} do
+      Process.sleep(8)
+      PubSub.broadcast(context, :cpu_temp, 50)
+      Process.sleep(8)
+      # Even though we've slept for 16 total milliseconds which exceesd the 10ms limit,
+      # we should still be OK because we got a ping in the middle which resets the timer
+      assert nil == Watchdog.get_fault(context)
+    end
+
+    @tag healthcheck: %{boiler_fill_status: 10}
+    test "boiler_fill_status delay faults", %{context: context} do
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "Healthcheck failed timeout: :boiler_fill_status"
+             } = Watchdog.get_fault(context)
+    end
+
+    @tag healthcheck: %{boiler_fill_status: 10}
+
+    test "boiler_fill_status ping makes it happy", %{context: context} do
+      Process.sleep(8)
+      PubSub.broadcast(context, :boiler_fill_status, 50)
+      Process.sleep(8)
+      # Even though we've slept for 16 total milliseconds which exceesd the 10ms limit,
+      # we should still be OK because we got a ping in the middle which resets the timer
+      assert nil == Watchdog.get_fault(context)
+    end
+  end
+
+  describe "deadlines" do
+    setup :setup_watchdog
 
     @tag deadline: %{pump: 10}
     test "pump on too long faults", %{context: context} do
       PubSub.broadcast(context, :pump, :on)
 
-      assert_receive({:DOWN, _, :process, _, :fault})
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
       Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
@@ -74,7 +138,9 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     test "refill solenoid on long faults", %{context: context} do
       PubSub.broadcast(context, :refill_solenoid, :open)
 
-      assert_receive({:DOWN, _, :process, _, :fault})
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
       Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
@@ -86,7 +152,9 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     test "grouphead solenoid on long faults", %{context: context} do
       PubSub.broadcast(context, :grouphead_solenoid, :open)
 
-      assert_receive({:DOWN, _, :process, _, :fault})
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
       Process.sleep(50)
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
