@@ -8,14 +8,12 @@ defmodule CoffeeTimeFirmware.PubSub do
   end
 
   def broadcast(context, key, value) do
-    Task.start(fn ->
-      Registry.dispatch(context.pubsub, key, fn entries ->
-        for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
-      end)
+    Registry.dispatch(context.pubsub, key, fn entries ->
+      for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
+    end)
 
-      Registry.dispatch(context.pubsub, "*", fn entries ->
-        for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
-      end)
+    Registry.dispatch(context.pubsub, "*", fn entries ->
+      for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
     end)
   end
 
