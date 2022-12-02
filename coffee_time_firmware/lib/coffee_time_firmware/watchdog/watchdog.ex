@@ -85,33 +85,6 @@ defmodule CoffeeTimeFirmware.Watchdog do
     {:reply, :cleared, state}
   end
 
-  @water_flow_components [
-    :pump,
-    :grouphead_solenoid,
-    :refill_solenoid
-  ]
-
-  def handle_info({:broadcast, component, :open}, state)
-      when component in @water_flow_components do
-    time = Map.fetch!(state.time_limits, component)
-    timer = Util.send_after(self(), {:waterflow_timeout, component}, time)
-
-    state = put_in(state.timers[component], timer)
-
-    {:noreply, state}
-  end
-
-  def handle_info({:broadcast, component, :close}, state)
-      when component in @water_flow_components do
-    if timer = state.timers[component] do
-      Process.cancel_timer(timer)
-    end
-
-    state = put_in(state.timers[component], nil)
-
-    {:noreply, state}
-  end
-
   def handle_info({:waterflow_timeout, component}, state) do
     state = set_fault(state, "water flow component timeout: #{inspect(component)}")
     {:noreply, state}
@@ -125,6 +98,40 @@ defmodule CoffeeTimeFirmware.Watchdog do
         state
       end
 
+    {:noreply, state}
+  end
+
+  @state_toggles [
+    pump: [on: :off],
+    grouphead_solenoid: [open: :close],
+    refill_solenoid: [open: :close]
+  ]
+
+  for {component, [{on_state, off_state}]} <- @state_toggles do
+    def handle_info({:broadcast, unquote(component) = component, unquote(on_state)}, state) do
+      handle_toggle_on(state, component)
+    end
+
+    def handle_info({:broadcast, unquote(component) = component, unquote(off_state)}, state) do
+      handle_toggle_off(state, component)
+    end
+  end
+
+  defp handle_toggle_on(state, component) do
+    time = Map.fetch!(state.time_limits, component)
+    timer = Util.send_after(self(), {:waterflow_timeout, component}, time)
+
+    state = put_in(state.timers[component], timer)
+
+    {:noreply, state}
+  end
+
+  def handle_toggle_off(state, component) do
+    if timer = state.timers[component] do
+      Process.cancel_timer(timer)
+    end
+
+    state = put_in(state.timers[component], nil)
     {:noreply, state}
   end
 

@@ -1,9 +1,9 @@
 defmodule CoffeeTimeFirmware.WatchdogTest do
   use CoffeeTimeFirmware.ContextCase, async: true
 
-  # import CoffeeTimeFirmware.Application, only: [name: 2]
+  import CoffeeTimeFirmware.Application, only: [name: 2]
 
-  alias CoffeeTimeFirmware.Measurement
+  alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Watchdog
 
   describe "init/1" do
@@ -42,15 +42,45 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
   end
 
-  @tag :measurement_store
-  describe "fault conditions" do
+  describe "basic fault condition tests" do
     setup :setup_watchdog
 
     test "boiler overtemp faults", %{context: context} do
-      Measurement.Store.put(context, :boiler_temp, 131)
+      PubSub.broadcast(context, :boiler_temp, 131)
+      :sys.get_state(name(context, Watchdog))
 
       assert %CoffeeTimeFirmware.Watchdog.Fault{
                message: "boiler over temp: 131"
+             } = Watchdog.get_fault(context)
+    end
+
+    test "pump on too long faults", %{context: context} do
+      PubSub.broadcast(context, :pump, :on)
+
+      Process.sleep(20)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "water flow component timeout: :pump"
+             } = Watchdog.get_fault(context)
+    end
+
+    test "refill solenoid on long faults", %{context: context} do
+      PubSub.broadcast(context, :refill_solenoid, :open)
+
+      Process.sleep(20)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "water flow component timeout: :refill_solenoid"
+             } = Watchdog.get_fault(context)
+    end
+
+    test "grouphead solenoid on long faults", %{context: context} do
+      PubSub.broadcast(context, :grouphead_solenoid, :open)
+
+      Process.sleep(20)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "water flow component timeout: :grouphead_solenoid"
              } = Watchdog.get_fault(context)
     end
   end
@@ -63,7 +93,12 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
         context: context,
         config: %{
           reboot_on_fault: false,
-          fault_file_path: path
+          fault_file_path: path,
+          time_limits: %{
+            pump: 10,
+            grouphead_solenoid: 10,
+            refill_solenoid: 10
+          }
         }
       })
 
