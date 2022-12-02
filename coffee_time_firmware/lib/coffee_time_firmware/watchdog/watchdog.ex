@@ -114,14 +114,25 @@ defmodule CoffeeTimeFirmware.Watchdog do
     {:stop, :fault, set_fault(state, message)}
   end
 
-  def handle_info({:broadcast, :boiler_temp, val}, state) do
-    if val > 130 do
-      {:stop, :fault, set_fault(state, "boiler over temp: #{val}")}
+  @healthcheck_and_threshold [
+    :boiler_temp,
+    :cpu_temp
+  ]
+
+  def handle_info({:broadcast, key, val}, state) when key in @healthcheck_and_threshold do
+    threshold = Map.fetch!(state.threshold, key)
+
+    if val > threshold do
+      {:stop, :fault,
+       set_fault(
+         state,
+         "Threshold exceeded: The value of #{key}, #{val}, exceeds #{threshold}"
+       )}
     else
       state =
         state
-        |> cancel_timer(:healthcheck, :boiler_temp)
-        |> set_timer(:healthcheck, :boiler_temp)
+        |> cancel_timer(:healthcheck, key)
+        |> set_timer(:healthcheck, key)
 
       {:noreply, state}
     end

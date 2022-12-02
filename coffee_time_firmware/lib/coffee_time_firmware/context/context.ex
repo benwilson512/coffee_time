@@ -39,7 +39,7 @@ defmodule CoffeeTimeFirmware.Context do
   def watchdog_config(:rpi3) do
     %{
       fault_file_path: "/data/fault.json",
-      reboot_on_fault: false,
+      reboot_on_fault: true,
       deadline: %{
         pump: :timer.seconds(60),
         grouphead_solenoid: :timer.seconds(60),

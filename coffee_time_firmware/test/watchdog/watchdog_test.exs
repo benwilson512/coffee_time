@@ -44,6 +44,36 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
   end
 
+  describe "thresholds" do
+    setup :setup_watchdog
+
+    @tag threshold: %{boiler_temp: 130}
+    test "boiler high temp faults", %{context: context} do
+      PubSub.broadcast(context, :boiler_temp, 131)
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault})
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "Threshold exceeded: The value of boiler_temp, 131, exceeds 130"
+             } = Watchdog.get_fault(context)
+    end
+
+    @tag threshold: %{cpu_temp: 50}
+    test "cpu high temp faults", %{context: context} do
+      PubSub.broadcast(context, :cpu_temp, 51)
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault})
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTimeFirmware.Watchdog.Fault{
+               message: "Threshold exceeded: The value of cpu_temp, 51, exceeds 50"
+             } = Watchdog.get_fault(context)
+    end
+  end
+
   describe "healthchecks" do
     setup :setup_watchdog
 
@@ -176,10 +206,7 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
              fault_file_path: path,
              healthcheck: params[:healthcheck] || %{},
              deadline: params[:deadline] || %{},
-             threshold: %{
-               cpu_temp: 50,
-               boiler_temp: 130
-             }
+             threshold: params[:threshold] || %{}
            }
          }}
       )
