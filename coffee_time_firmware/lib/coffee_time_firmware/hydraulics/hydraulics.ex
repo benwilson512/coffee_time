@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.WaterFlow do
+defmodule CoffeeTimeFirmware.Hydraulics do
   @moduledoc """
   Handles controlling the solenoids and water pump.
 
@@ -52,13 +52,13 @@ defmodule CoffeeTimeFirmware.WaterFlow do
     |> GenStateMachine.call({:drive_grouphead, mode})
   end
 
-  def start_link(%{context: context}) do
-    GenStateMachine.start_link(__MODULE__, context,
+  def start_link(%{context: context} = params) do
+    GenStateMachine.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context) do
+  def init(%{context: context}) do
     data = %__MODULE__{
       context: context,
       gpio_pins: setup_gpio_pins(context.hardware)

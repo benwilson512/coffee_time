@@ -22,8 +22,7 @@ defmodule CoffeeTimeFirmware.Application do
        %{context: context, config: CoffeeTimeFirmware.Context.watchdog_config(target())}},
       {CoffeeTimeFirmware.Measurement, %{context: context}},
       {CoffeeTimeFirmware.Boiler, %{context: context}},
-      {CoffeeTimeFirmware.WaterFlow, %{context: context}},
-      {CoffeeTimeFirmware.Barista, %{context: context}}
+      {CoffeeTimeFirmware.Hydraulics, %{context: context}}
     ]
     |> List.flatten()
   end

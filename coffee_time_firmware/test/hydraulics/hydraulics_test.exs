@@ -1,17 +1,17 @@
-defmodule CoffeeTimeFirmware.WaterFlowTest do
+defmodule CoffeeTimeFirmware.HydraulicsTest do
   use CoffeeTimeFirmware.ContextCase, async: true
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
   alias CoffeeTimeFirmware.Measurement
-  alias CoffeeTimeFirmware.WaterFlow
+  alias CoffeeTimeFirmware.Hydraulics
   # alias CoffeeTimeFirmware.Hardware
 
   @moduletag :measurement_store
 
   setup %{context: context} do
     {:ok, _} =
-      WaterFlow.start_link(%{
+      Hydraulics.start_link(%{
         context: context
       })
 
@@ -19,7 +19,7 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
   end
 
   test "initial state is sane", %{context: context} do
-    assert {:idle, _} = :sys.get_state(name(context, WaterFlow))
+    assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
   end
 
   describe "boot process" do
@@ -28,18 +28,18 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
     } do
       Measurement.Store.put(context, :boiler_fill_status, :full)
 
-      WaterFlow.boot(context)
+      Hydraulics.boot(context)
 
-      assert {:ready, _} = :sys.get_state(name(context, WaterFlow))
+      assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     end
 
     test "If the boiler is low we refill it. Upon refill we go back to ready", %{
       context: context
     } do
       Measurement.Store.put(context, :boiler_fill_status, :low)
-      WaterFlow.boot(context)
+      Hydraulics.boot(context)
 
-      assert {:boiler_filling, _} = :sys.get_state(name(context, WaterFlow))
+      assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
 
       # 0s activate the relay not 1s here
       assert_receive({:write_gpio, :refill_solenoid, 0})
@@ -47,7 +47,7 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
 
-      assert {:ready, _} = :sys.get_state(name(context, WaterFlow))
+      assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
 
       assert_receive({:write_gpio, :refill_solenoid, 1})
       assert_receive({:write_gpio, :pump, 1})
@@ -59,44 +59,44 @@ defmodule CoffeeTimeFirmware.WaterFlowTest do
 
     test "attempting to pull espresso during a refill is refused", %{context: context} do
       Measurement.Store.put(context, :boiler_fill_status, :low)
-      assert assert {:boiler_filling, _} = :sys.get_state(name(context, WaterFlow))
-      assert WaterFlow.drive_grouphead(context, {:timer, 0}) == {:error, :busy}
+      assert assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
+      assert Hydraulics.drive_grouphead(context, {:timer, 0}) == {:error, :busy}
     end
 
     test "we can pull some espresso", %{context: context} do
-      assert :ok = WaterFlow.drive_grouphead(context, {:timer, 0})
+      assert :ok = Hydraulics.drive_grouphead(context, {:timer, 0})
 
       assert_receive({:write_gpio, :grouphead_solenoid, 0})
       assert_receive({:write_gpio, :pump, 0})
 
-      assert {:driving_grouphead, _} = :sys.get_state(name(context, WaterFlow))
+      assert {:driving_grouphead, _} = :sys.get_state(name(context, Hydraulics))
 
       assert_receive({:write_gpio, :grouphead_solenoid, 1})
       assert_receive({:write_gpio, :pump, 1})
     end
 
     test "calling drive group head while it's in progress does nothing", %{context: context} do
-      assert :ok = WaterFlow.drive_grouphead(context, {:timer, :infinity})
-      assert {:error, :busy} = WaterFlow.drive_grouphead(context, {:timer, :infinity})
+      assert :ok = Hydraulics.drive_grouphead(context, {:timer, :infinity})
+      assert {:error, :busy} = Hydraulics.drive_grouphead(context, {:timer, :infinity})
     end
 
     test "pulling espresso delays boiler refill", %{context: context} do
-      WaterFlow.drive_grouphead(context, {:timer, :infinity})
+      Hydraulics.drive_grouphead(context, {:timer, :infinity})
       Measurement.Store.put(context, :boiler_fill_status, :low)
       # we wait for the grouphead to cycle
       assert_receive({:write_gpio, :grouphead_solenoid, 0})
-      send(lookup_pid(context, WaterFlow), :halt_grouphead)
+      send(lookup_pid(context, Hydraulics), :halt_grouphead)
       assert_receive({:write_gpio, :grouphead_solenoid, 1})
 
-      assert {:boiler_filling, _} = :sys.get_state(name(context, WaterFlow))
+      assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
       assert_receive({:write_gpio, :refill_solenoid, 0})
     end
   end
 
   defp boot(%{context: context} = info) do
     Measurement.Store.put(context, :boiler_fill_status, :full)
-    WaterFlow.boot(context)
-    assert {:ready, _} = :sys.get_state(name(context, WaterFlow))
+    Hydraulics.boot(context)
+    assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     info
   end
 end
