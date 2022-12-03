@@ -33,7 +33,7 @@ defmodule CoffeeTimeFirmware.Boiler do
 
     children = [
       {__MODULE__.DutyCycle, params},
-      {__MODULE__.Manager, params}
+      {__MODULE__.TempControl, params}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

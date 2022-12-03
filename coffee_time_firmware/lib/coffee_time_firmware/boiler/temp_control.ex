@@ -1,4 +1,4 @@
-defmodule CoffeeTimeFirmware.Boiler.Manager do
+defmodule CoffeeTimeFirmware.Boiler.TempControl do
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
   require Logger
 

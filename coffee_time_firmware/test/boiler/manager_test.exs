@@ -1,9 +1,9 @@
-defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
+defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
   use CoffeeTimeFirmware.ContextCase, async: true
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
-  alias CoffeeTimeFirmware.Boiler.Manager
+  alias CoffeeTimeFirmware.Boiler.TempControl
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Measurement
 
@@ -23,7 +23,7 @@ defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
 
   test "initial state is sane", %{context: context} do
     assert %{duty_cycle: 0} = :sys.get_state(name(context, Boiler.DutyCycle))
-    assert {:idle, _} = :sys.get_state(name(context, Boiler.Manager))
+    assert {:idle, _} = :sys.get_state(name(context, Boiler.TempControl))
   end
 
   describe "boot process" do
@@ -31,9 +31,9 @@ defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
       context: context
     } do
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      Manager.boot(context)
+      TempControl.boot(context)
 
-      assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
+      assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
     end
 
     test "If the boiler is low we refill it. Upon refill we are in boot warmup", %{
@@ -41,12 +41,12 @@ defmodule CoffeeTimeFirmware.Boiler.ManagerTest do
     } do
       Measurement.Store.put(context, :boiler_fill_status, :low)
 
-      Manager.boot(context)
+      TempControl.boot(context)
 
-      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, Manager))
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      assert {:hold_temp, _} = :sys.get_state(name(context, Manager))
+      assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
     end
   end
 end
