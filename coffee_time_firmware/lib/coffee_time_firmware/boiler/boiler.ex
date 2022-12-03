@@ -10,8 +10,6 @@ defmodule CoffeeTimeFirmware.Boiler do
   The choice to split these into three distinct GenServers came from the need to manage several independent timers.
   The DutyCycle timer in particular has to be pretty strict since it controls the actual amount of power sent to the
   heating element.
-
-
   """
 
   use Supervisor

@@ -8,6 +8,7 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
   This process centralizes all recorded values to allow interested parties to access known temperatures at
   any interval they like. It also manages a pubsub mechanism for updates.
   """
+
   alias CoffeeTimeFirmware.PubSub
 
   use GenServer

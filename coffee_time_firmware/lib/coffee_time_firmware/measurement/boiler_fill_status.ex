@@ -1,16 +1,13 @@
 defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
+  @moduledoc """
+  Tracks the boiler fill level.
+  """
+
   use GenServer
   require Logger
 
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Util
-
-  @moduledoc """
-  Handles tracking the boiler fill level.
-
-  I'm not sure honestly whether this module belongs here or in the water flow area. It's a water
-  level sensor, so probably over there.
-  """
 
   defstruct [:context, :gpio, :idle_read_interval, :refill_read_interval, status: :unknown]
 

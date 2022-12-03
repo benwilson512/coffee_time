@@ -1,14 +1,4 @@
 defmodule CoffeeTimeFirmware.WaterFlow do
-  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
-
-  import CoffeeTimeFirmware.Application, only: [name: 2]
-
-  require Logger
-  alias CoffeeTimeFirmware.PubSub
-  alias CoffeeTimeFirmware.Measurement
-  alias CoffeeTimeFirmware.Hardware
-  alias CoffeeTimeFirmware.Util
-
   @moduledoc """
   Handles controlling the solenoids and water pump.
 
@@ -22,6 +12,16 @@ defmodule CoffeeTimeFirmware.WaterFlow do
   how machines with multiples of those are plumped. If I ever add another boiler to my machine I'll
   figure things out at that point.
   """
+
+  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
+
+  import CoffeeTimeFirmware.Application, only: [name: 2]
+
+  require Logger
+  alias CoffeeTimeFirmware.PubSub
+  alias CoffeeTimeFirmware.Measurement
+  alias CoffeeTimeFirmware.Hardware
+  alias CoffeeTimeFirmware.Util
 
   defstruct [
     :context,

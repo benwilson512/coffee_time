@@ -1,4 +1,10 @@
 defmodule CoffeeTimeFirmware.Context do
+  @moduledoc """
+  Defines the general execution context.
+
+  This application uses this struct and passes it around in favor of having different processes
+  directly query the application config. This dramatically simplifies testing.
+  """
   defstruct [
     :registry,
     :pubsub,

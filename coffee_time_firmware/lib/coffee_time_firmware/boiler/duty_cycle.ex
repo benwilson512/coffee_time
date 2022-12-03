@@ -1,12 +1,13 @@
 defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
-  use GenServer
-  require Logger
-
   @moduledoc """
   Applies a duty cycle to the boiler.
 
   There's some interesting nuance here when trying to rapidly switch an AC
   """
+
+  use GenServer
+  require Logger
+
   defstruct [:context, :gpio, write_interval: 100, duty_cycle: 0, counter: 1, subdivisions: 10]
 
   def set(context, int) when int in 0..10 do

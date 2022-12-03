@@ -1,12 +1,4 @@
 defmodule CoffeeTimeFirmware.Boiler.TempControl do
-  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
-  require Logger
-
-  import CoffeeTimeFirmware.Application, only: [name: 2]
-
-  alias CoffeeTimeFirmware.Measurement
-  alias CoffeeTimeFirmware.Boiler
-
   @moduledoc """
   Manages the Boiler state machine.
 
@@ -14,6 +6,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   be responsible for the PID loop. This process may be just fine, although obviously the PID math
   should get extracted to its own module.
   """
+
+  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
+  require Logger
+
+  import CoffeeTimeFirmware.Application, only: [name: 2]
+
+  alias CoffeeTimeFirmware.Measurement
+  alias CoffeeTimeFirmware.Boiler
 
   defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
 

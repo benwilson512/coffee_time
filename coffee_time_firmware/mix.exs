@@ -33,6 +33,7 @@ defmodule CoffeeTimeFirmware.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:cubdb, "~> 2.0"},
       {:jason, ">= 0.0.0"},
       {:briefly, ">= 0.0.0", only: :test},
       {:gen_state_machine, "~> 3.0"},

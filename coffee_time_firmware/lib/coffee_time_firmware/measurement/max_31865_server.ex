@@ -1,4 +1,7 @@
 defmodule CoffeeTimeFirmware.Measurement.Max31865Server do
+  @moduledoc """
+  The Max31865.Server is an analog to digital convert used by the boiler temp probe.
+  """
   def child_spec(arg) do
     %{
       id: __MODULE__,
