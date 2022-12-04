@@ -1,36 +1,35 @@
 defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
-  use ExUnit.Case, async: true
+  use CoffeeTimeFirmware.ContextCase, async: true
 
   # import CoffeeTimeFirmware.Application, only: [name: 2]
 
   alias CoffeeTimeFirmware.Boiler
 
-  setup do
-    context = %CoffeeTimeFirmware.Context{
-      registry: unique_name(),
-      pubsub: unique_name(),
-      hardware: %CoffeeTimeFirmware.Hardware.Mock{
-        pid: self()
-      }
-    }
+  test "exiting the process resets gpio to 0", %{context: context} do
+    {:ok, _} =
+      start_supervised(
+        {Boiler.DutyCycle,
+         %{
+           context: context,
+           intervals: %{
+             # The point of the infinite value here is that we never really want the timer to go off,
+             # we are always going to trigger it manually for these tests
+             Boiler.DutyCycle => %{write_interval: :infinity}
+           }
+         }},
+        restart: :temporary
+      )
 
-    {:ok, _x} = Registry.start_link(keys: :unique, name: context.registry, partitions: 1)
-    {:ok, _x} = Registry.start_link(keys: :duplicate, name: context.pubsub, partitions: 1)
+    Boiler.DutyCycle.set(context, 10)
+    assert_receive({:write_gpio, :duty_cycle, 1})
 
-    {:ok, pid} =
-      CoffeeTimeFirmware.Boiler.DutyCycle.start_link(%{
-        context: context,
-        intervals: %{
-          # The point of the infinite value here is that we never really want the timer to go off,
-          # we are always going to trigger it manually for these tests
-          Boiler.DutyCycle => %{write_interval: :infinity}
-        }
-      })
-
-    {:ok, %{context: context, pid: pid}}
+    stop_supervised(Boiler.DutyCycle)
+    assert_receive({:write_gpio, :duty_cycle, 0})
   end
 
   describe "basic sanity checks" do
+    setup :setup_process
+
     test "a duty cycle of 0 writes all 0s to gpio", %{pid: pid} do
       assert %{duty_cycle: 0, subdivisions: subdivisions} = :sys.get_state(pid)
 
@@ -52,6 +51,8 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
   end
 
   describe "fancy logic" do
+    setup :setup_process
+
     test "50% is even", %{context: context, pid: pid} do
       Boiler.DutyCycle.set(context, 5)
 
@@ -86,7 +87,20 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
     end
   end
 
-  defp unique_name() do
-    Module.concat(__MODULE__, to_string(:erlang.unique_integer([:positive])))
+  def setup_process(%{context: context}) do
+    {:ok, pid} =
+      start_supervised({
+        CoffeeTimeFirmware.Boiler.DutyCycle,
+        %{
+          context: context,
+          intervals: %{
+            # The point of the infinite value here is that we never really want the timer to go off,
+            # we are always going to trigger it manually for these tests
+            Boiler.DutyCycle => %{write_interval: :infinity}
+          }
+        }
+      })
+
+    {:ok, %{context: context, pid: pid}}
   end
 end

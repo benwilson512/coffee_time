@@ -8,6 +8,8 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   use GenServer
   require Logger
 
+  alias CoffeeTimeFirmware.Util
+
   defstruct [:context, :gpio, write_interval: 100, duty_cycle: 0, counter: 1, subdivisions: 10]
 
   def set(context, int) when int in 0..10 do
@@ -24,26 +26,6 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     :ok
   end
 
-  def block(context, val) do
-    Logger.info("""
-    Blocking DutyCycle: #{inspect(val)}
-    """)
-
-    context
-    |> CoffeeTimeFirmware.Application.name(__MODULE__)
-    |> GenServer.call({:block, val})
-  end
-
-  def unblock(context, val) do
-    Logger.info("""
-    UnBlocking DutyCycle: #{inspect(val)}
-    """)
-
-    context
-    |> CoffeeTimeFirmware.Application.name(__MODULE__)
-    |> GenServer.call({:unblock, val})
-  end
-
   def start_link(%{context: context} = params) do
     GenServer.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
@@ -51,6 +33,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
+    Process.flag(:trap_exit, true)
     {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :duty_cycle)
 
     state = %__MODULE__{
@@ -59,7 +42,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
       write_interval: interval
     }
 
-    schedule_tick(state)
+    Util.send_after(self(), :tick, state.write_interval)
 
     {:ok, state}
   end
@@ -73,22 +56,12 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     {:stop, reason}
   end
 
-  def handle_call({:block, blocker}, _from, state) do
-    state = Map.update!(state, :bockers, &MapSet.put(&1, blocker))
-    {:reply, :ok, state, {:continue, :cycle}}
-  end
-
-  def handle_call({:unblock, blocker}, _from, state) do
-    state = Map.update!(state, :bockers, &MapSet.delete(&1, blocker))
-    {:reply, :ok, state, {:continue, :cycle}}
-  end
-
   def handle_cast({:set, int}, state) do
     {:noreply, %{state | duty_cycle: int}, {:continue, :cycle}}
   end
 
   def handle_info(:tick, state) do
-    schedule_tick(state)
+    Util.send_after(self(), :tick, state.write_interval)
 
     {:noreply, inc(state), {:continue, :cycle}}
   end
@@ -107,12 +80,6 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
     CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)
     {:noreply, state}
-  end
-
-  defp schedule_tick(state) do
-    if state.write_interval != :infinity do
-      Process.send_after(self(), :tick, state.write_interval)
-    end
   end
 
   defp inc(%{subdivisions: subdivisions} = state) do
