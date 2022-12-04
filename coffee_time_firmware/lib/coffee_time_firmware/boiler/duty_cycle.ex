@@ -15,11 +15,13 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     Setting duty cycle: #{int}
     """)
 
-    CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
-
     context
     |> CoffeeTimeFirmware.Application.name(__MODULE__)
     |> GenServer.cast({:set, int})
+
+    CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
+
+    :ok
   end
 
   def block(context, val) do

@@ -71,8 +71,13 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:keep_state, data, [{:reply, from, response}]}
   end
 
-  ## Boot Fill
+  ## Boiler Fill
   ######################
+
+  def handle_event(:enter, _, :awaiting_boiler_fill, data) do
+    Boiler.DutyCycle.set(data.context, 0)
+    :keep_state_and_data
+  end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
     # IO.puts("received #{status}")
@@ -114,15 +119,13 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   # Fill level status
-  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, _data) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, data) do
     case status do
       :full ->
         :keep_state_and_data
 
       :low ->
-        # TODO: BLOCKED BY RELAY
-        # Do the refill process here.
-        {:stop, "boiler low"}
+        {:next_state, :awaiting_boiler_fill, data}
     end
   end
 
