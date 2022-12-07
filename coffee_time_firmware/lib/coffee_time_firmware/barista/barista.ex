@@ -8,6 +8,7 @@ defmodule CoffeeTimeFirmware.Barista do
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
   require Logger
+  alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Hydraulics
   # alias CoffeeTimeFirmware.PubSub
@@ -88,6 +89,14 @@ defmodule CoffeeTimeFirmware.Barista do
 
   def handle_event({:call, from}, {:run_program, program}, :ready, data) do
     {:next_state, {:executing, program}, data, {:reply, from, :ok}}
+  end
+
+  ## Executing
+  ###############
+
+  def handle_event(:enter, _, {:executing, program}, %{context: context}) do
+    PubSub.broadcast(context, :barista, {:program_start, program})
+    :keep_state_and_data
   end
 
   ## General

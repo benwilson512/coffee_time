@@ -3,6 +3,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Barista
   alias CoffeeTimeFirmware.Measurement
 
@@ -30,7 +31,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     end
   end
 
-  describe "basic program logic" do
+  describe "Program sanity checks" do
     setup :boot
 
     test "running a program that doesn't exist returns an error", %{context: context} do
@@ -42,11 +43,17 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     test "can save and run a program", %{
       context: context
     } do
+      PubSub.subscribe(context, :barista)
       Barista.save_program(context, %Barista.Program{name: :test})
 
       assert :ok = Barista.run_program(context, :test)
 
       assert {{:executing, _}, _} = :sys.get_state(name(context, Barista))
+
+      assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
+    end
+  end
+
     end
   end
 
