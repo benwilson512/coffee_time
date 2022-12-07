@@ -11,6 +11,26 @@ defmodule Help do
     CoffeeTimeFirmware.Context.new(:rpi3)
   end
 
+  @programs [
+    %CoffeeTimeFirmware.Barista.Program{
+      name: :short_flush,
+      grouphead_duration: {:timer, 2000}
+    },
+    %CoffeeTimeFirmware.Barista.Program{
+      name: :long_flush,
+      grouphead_duration: {:timer, 10000}
+    },
+    %CoffeeTimeFirmware.Barista.Program{
+      name: :standard_espresso,
+      grouphead_duration: {:timer, 30000},
+      pump_delay: 3000
+    }
+  ]
+  def __reseed__() do
+    context = context()
+    Enum.each(@programs, &CoffeeTimeFirmware.Barista.save_program(context, &1))
+  end
+
   def __restart__() do
     Application.stop(:coffee_time_firmware)
     Application.start(:coffee_time_firmware)
