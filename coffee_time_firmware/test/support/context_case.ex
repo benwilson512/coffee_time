@@ -14,12 +14,15 @@ defmodule CoffeeTimeFirmware.ContextCase do
   end
 
   setup info do
+    dir = Briefly.create!(directory: true)
+
     context = %CoffeeTimeFirmware.Context{
       registry: unique_name(),
       pubsub: unique_name(),
       hardware: %CoffeeTimeFirmware.Hardware.Mock{
         pid: self()
-      }
+      },
+      data_dir: dir
     }
 
     {:ok, _x} = Registry.start_link(keys: :unique, name: context.registry, partitions: 1)

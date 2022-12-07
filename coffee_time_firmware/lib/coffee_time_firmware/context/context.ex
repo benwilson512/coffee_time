@@ -8,7 +8,8 @@ defmodule CoffeeTimeFirmware.Context do
   defstruct [
     :registry,
     :pubsub,
-    :hardware
+    :hardware,
+    :data_dir
   ]
 
   @type t() :: %__MODULE__{
@@ -31,7 +32,8 @@ defmodule CoffeeTimeFirmware.Context do
     %CoffeeTimeFirmware.Context{
       registry: CoffeeTimeFirmware.Registry,
       pubsub: CoffeeTimeFirmware.PubSub,
-      hardware: %CoffeeTimeFirmware.Hardware.Pi{}
+      hardware: %CoffeeTimeFirmware.Hardware.Pi{},
+      data_dir: "/data"
     }
   end
 
