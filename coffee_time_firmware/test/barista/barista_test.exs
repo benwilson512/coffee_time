@@ -12,7 +12,9 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   setup %{context: context} do
     {:ok, _} = start_supervised({Barista.Super, %{context: context}})
 
-    {:ok, %{context: context}}
+    [{pid, _}] = Registry.lookup(context.registry, CoffeeTimeFirmware.Barista)
+
+    {:ok, %{context: context, barista_pid: pid}}
   end
 
   test "initial state is sane", %{context: context} do
@@ -54,7 +56,53 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     end
   end
 
+  describe "Real Programs" do
+    setup [:spawn_subsystems, :boot]
+
+    @tag :capture_log
+    test "when executing a program the barista process lives or dies with the hydraulics process",
+         %{context: context, barista_pid: pid} do
+      Process.monitor(pid)
+
+      program = %Barista.Program{
+        name: :espresso,
+        grouphead_duration: :invalid_value
+      }
+
+      Barista.run_program(context, program)
+
+      assert_receive({:DOWN, _, :process, ^pid, _})
     end
+
+    test "can start a simple program", %{context: context} do
+      PubSub.subscribe(context, :grouphead_solenoid)
+      PubSub.subscribe(context, :pump)
+
+      program = %Barista.Program{
+        name: :espresso,
+        grouphead_duration: {:timer, 10}
+      }
+
+      assert :ok = Barista.run_program(context, program)
+
+      assert_receive({:broadcast, :pump, :on})
+      assert_receive({:broadcast, :grouphead_solenoid, :open})
+    end
+
+    test "trying to start a program while another is in progress fails", %{context: context} do
+      program = %Barista.Program{
+        name: :espresso,
+        grouphead_duration: {:timer, :infinity}
+      }
+
+      assert :ok = Barista.run_program(context, program)
+      assert {:error, :busy} = Barista.run_program(context, program)
+    end
+  end
+
+  defp spawn_subsystems(%{context: context} = info) do
+    start_supervised!({CoffeeTimeFirmware.Hydraulics, %{context: context}})
+    info
   end
 
   defp boot(%{context: context} = info) do

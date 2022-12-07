@@ -96,7 +96,14 @@ defmodule CoffeeTimeFirmware.Barista do
 
   def handle_event(:enter, _, {:executing, program}, %{context: context}) do
     PubSub.broadcast(context, :barista, {:program_start, program})
+    link!(context, Hydraulics)
+    :ok = Hydraulics.drive_grouphead(context, program.grouphead_duration)
+
     :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, {:run_program, _}, {:executing, _}, _data) do
+    {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
   ## General
@@ -110,5 +117,10 @@ defmodule CoffeeTimeFirmware.Barista do
     """)
 
     {:keep_state, data}
+  end
+
+  defp link!(context, name) do
+    [{pid, _}] = Registry.lookup(context.registry, name)
+    Process.link(pid)
   end
 end

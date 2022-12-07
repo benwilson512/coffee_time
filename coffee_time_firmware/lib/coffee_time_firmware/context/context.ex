@@ -24,7 +24,8 @@ defmodule CoffeeTimeFirmware.Context do
     %CoffeeTimeFirmware.Context{
       registry: CoffeeTimeFirmware.Registry,
       pubsub: CoffeeTimeFirmware.PubSub,
-      hardware: %CoffeeTimeFirmware.Hardware.Host{}
+      hardware: %CoffeeTimeFirmware.Hardware.Host{},
+      data_dir: :code.priv_dir(:coffee_time_firmware)
     }
   end
 
