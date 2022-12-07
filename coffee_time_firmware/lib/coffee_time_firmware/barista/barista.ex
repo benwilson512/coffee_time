@@ -30,8 +30,8 @@ defmodule CoffeeTimeFirmware.Barista do
     |> GenStateMachine.call(:boot)
   end
 
-  def save_program(context, name, %__MODULE__.Program{} = preset) do
-    CubDB.put(name(context, :db), {:program, name}, preset)
+  def save_program(context, %__MODULE__.Program{name: name} = program) do
+    CubDB.put(name(context, :db), {:program, name}, program)
   end
 
   def get_program(context, name) do
@@ -56,14 +56,14 @@ defmodule CoffeeTimeFirmware.Barista do
       nil ->
         {:error, :not_found}
 
-      %__MODULE__.Program{} = program ->
+      %__MODULE__.Program{name: ^name} = program ->
         run_program(context, program)
 
       other ->
         raise """
         Program store corrupted!
         Name: #{inspect(name)}
-        ProgramL #{inspect(other)}
+        Program #{inspect(other)}
         """
     end
   end

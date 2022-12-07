@@ -42,7 +42,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     test "can save and run a program", %{
       context: context
     } do
-      Barista.save_program(context, :test, %Barista.Program{})
+      Barista.save_program(context, %Barista.Program{name: :test})
 
       assert :ok = Barista.run_program(context, :test)
 

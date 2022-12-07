@@ -1,3 +1,4 @@
 defmodule CoffeeTimeFirmware.Barista.Program do
-  defstruct []
+  @enforce_keys [:name]
+  defstruct [:name]
 end
