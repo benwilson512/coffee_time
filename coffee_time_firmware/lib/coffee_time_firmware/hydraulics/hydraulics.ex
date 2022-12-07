@@ -11,6 +11,14 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   group heads, boilers, and pumps. I have 1 boiler, 1 pump, and 1 group head. I also have no idea
   how machines with multiples of those are plumped. If I ever add another boiler to my machine I'll
   figure things out at that point.
+
+  ## Internal notes
+
+  This is a :gen_statem process. The approach I'm using is that changes to solenoids and the pump
+  are all enacted at the `:enter` clauses for the states. This means that any state can for example
+  `{:next_state, :ready, data}` and rely on the `:ready` state to close all the solenoids and turn
+  off the pump without having to worry about turning the pump off from various different states.
+
   """
 
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
@@ -32,6 +40,12 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     context
     |> name(__MODULE__)
     |> GenStateMachine.cast(:boot)
+  end
+
+  def halt(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:halt)
   end
 
   @doc """
@@ -96,13 +110,27 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Ready
   ##################
 
-  def handle_event({:call, from}, {:drive_grouphead, mode}, :ready, data) do
-    case mode do
-      {:timer, duration} ->
-        Util.send_after(self(), :halt_grouphead, duration)
-    end
+  def handle_event(:enter, _old_state, :ready, data) do
+    pump_off!(data)
+    # NOTE TO self: It may be a good idea to add a small delay between turning the pump off
+    # and closing the solenoids. Doing it "instantly" might produce a water hammer effect.
+    # Need to test.
+    refill_solenoid_close!(data)
+    grouphead_solenoid_close!(data)
 
-    {:next_state, :driving_grouphead, data, {:reply, from, :ok}}
+    :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, {:drive_grouphead, mode}, :ready, data) do
+    timer =
+      case mode do
+        # TODO: support a mode that counts water flow meter ticks for volumetric
+        # dosing.
+        {:timer, duration} ->
+          Util.send_after(self(), :halt_grouphead, duration)
+      end
+
+    {:next_state, {:driving_grouphead, timer}, data, {:reply, from, :ok}}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :ready, data) do
@@ -127,9 +155,6 @@ defmodule CoffeeTimeFirmware.Hydraulics do
         :keep_state_and_data
 
       :full ->
-        refill_solenoid_close!(data)
-        pump_off!(data)
-
         {:next_state, :ready, data}
     end
   end
@@ -138,26 +163,33 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
+  def handle_event({:call, from}, :halt, :boiler_filling, _) do
+    {:keep_state_and_data, {:reply, from, {:error, :filling_boiler}}}
+  end
+
   ## Grouphead Driving
   #####################
 
-  def handle_event(:enter, _, :driving_grouphead, data) do
+  def handle_event(:enter, _, {:driving_grouphead, _}, data) do
     grouphead_solenoid_open!(data)
     pump_on!(data)
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :driving_grouphead, _) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, {:driving_grouphead, _}, _) do
     {:keep_state_and_data, :postpone}
   end
 
-  def handle_event({:call, from}, {:drive_grouphead, _}, :driving_grouphead, _data) do
+  def handle_event({:call, from}, {:drive_grouphead, _}, {:driving_grouphead, _}, _data) do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
-  def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
-    pump_off!(data)
-    grouphead_solenoid_close!(data)
+  def handle_event({:call, from}, :halt, {:driving_grouphead, timer}, data) do
+    Util.cancel_timer(timer)
+    {:next_state, :ready, data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, :halt_grouphead, {:driving_grouphead, _}, data) do
     {:next_state, :ready, data}
   end
 
