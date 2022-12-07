@@ -30,14 +30,42 @@ defmodule CoffeeTimeFirmware.Barista do
     |> GenStateMachine.call(:boot)
   end
 
-  def put_preset(context, key, %__MODULE__.Preset{} = preset) do
-    CubDB.put(name(context, :db), {:preset, key}, preset)
+  def save_program(context, name, %__MODULE__.Program{} = preset) do
+    CubDB.put(name(context, :db), {:program, name}, preset)
   end
 
-  def run_preset(context, key) do
+  def get_program(context, name) do
+    CubDB.get(name(context, :db), {:program, name})
+  end
+
+  @doc """
+  Run a Barista program.
+
+  This function takes either a `%Barista.Program{}` struct, or the name of a saved
+  program.
+  """
+
+  def run_program(context, %__MODULE__.Program{} = program) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call({:run_preset, key})
+    |> GenStateMachine.call({:run_program, program})
+  end
+
+  def run_program(context, name) do
+    case get_program(context, name) do
+      nil ->
+        {:error, :not_found}
+
+      %__MODULE__.Program{} = program ->
+        run_program(context, program)
+
+      other ->
+        raise """
+        Program store corrupted!
+        Name: #{inspect(name)}
+        ProgramL #{inspect(other)}
+        """
+    end
   end
 
   def init(%{context: context}) do
@@ -58,14 +86,8 @@ defmodule CoffeeTimeFirmware.Barista do
   ## Ready
   ##################
 
-  def handle_event({:call, from}, {:run_preset, key}, :ready, data) do
-    case CubDB.get(data.db, {:preset, key}) do
-      nil ->
-        {:keep_state_and_data, {:reply, from, {:error, :preset_not_found}}}
-
-      preset ->
-        {:next_state, {:running_preset, preset}, data, {:reply, from, :ok}}
-    end
+  def handle_event({:call, from}, {:run_program, program}, :ready, data) do
+    {:next_state, {:executing, program}, data, {:reply, from, :ok}}
   end
 
   ## General

@@ -30,23 +30,23 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     end
   end
 
-  describe "basic preset logic" do
+  describe "basic program logic" do
     setup :boot
 
-    test "running a preset that doesn't exist returns an error", %{context: context} do
-      assert {:error, :preset_not_found} = Barista.run_preset(context, :does_not_exist)
+    test "running a program that doesn't exist returns an error", %{context: context} do
+      assert {:error, :not_found} = Barista.run_program(context, :does_not_exist)
 
       assert {:ready, _} = :sys.get_state(name(context, Barista))
     end
 
-    test "can set and run a preset", %{
+    test "can save and run a program", %{
       context: context
     } do
-      Barista.put_preset(context, :test, %Barista.Preset{})
+      Barista.save_program(context, :test, %Barista.Program{})
 
-      assert :ok = Barista.run_preset(context, :test)
+      assert :ok = Barista.run_program(context, :test)
 
-      assert {{:running_preset, _}, _} = :sys.get_state(name(context, Barista))
+      assert {{:executing, _}, _} = :sys.get_state(name(context, Barista))
     end
   end
 
