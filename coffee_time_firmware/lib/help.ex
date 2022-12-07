@@ -23,7 +23,7 @@ defmodule Help do
     %CoffeeTimeFirmware.Barista.Program{
       name: :standard_espresso,
       grouphead_duration: {:timer, 30000},
-      pump_delay: 3000
+      pump_delay: {:timer, 2000}
     }
   ]
   def __reseed__() do

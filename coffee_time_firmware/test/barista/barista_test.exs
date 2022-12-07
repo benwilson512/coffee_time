@@ -34,7 +34,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   end
 
   describe "Program sanity checks" do
-    setup :boot
+    setup [:spawn_subsystems, :boot]
 
     test "running a program that doesn't exist returns an error", %{context: context} do
       assert {:error, :not_found} = Barista.run_program(context, :does_not_exist)
@@ -70,6 +70,10 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       }
 
       Barista.run_program(context, program)
+
+      [{hydraulics_pid, _}] = Registry.lookup(context.registry, CoffeeTimeFirmware.Hydraulics)
+
+      Process.exit(hydraulics_pid, :kill)
 
       assert_receive({:DOWN, _, :process, ^pid, _})
     end

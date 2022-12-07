@@ -11,6 +11,7 @@ defmodule CoffeeTimeFirmware.Barista do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Hydraulics
+  alias CoffeeTimeFirmware.Util
   # alias CoffeeTimeFirmware.PubSub
   # alias CoffeeTimeFirmware.Measurement
 
@@ -97,7 +98,12 @@ defmodule CoffeeTimeFirmware.Barista do
   def handle_event(:enter, _, {:executing, program}, %{context: context}) do
     PubSub.broadcast(context, :barista, {:program_start, program})
     link!(context, Hydraulics)
-    :ok = Hydraulics.drive_grouphead(context, program.grouphead_duration)
+    :ok = Hydraulics.open_solenoid(context, :grouphead)
+
+    # case program.grouphead_duration do
+    #   {:timer, time} ->
+    #     Util.send_after(self(), :halt_grouphead, time)
+    # end
 
     :keep_state_and_data
   end

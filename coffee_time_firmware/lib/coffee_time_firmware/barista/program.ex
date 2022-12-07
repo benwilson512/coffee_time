@@ -12,6 +12,6 @@ defmodule CoffeeTimeFirmware.Barista.Program do
   defstruct [
     :name,
     :grouphead_duration,
-    pump_delay: 0
+    pump_delay: {:timer, 0}
   ]
 end
