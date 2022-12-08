@@ -17,10 +17,31 @@ defmodule CoffeeTimeFirmware.Barista.Program do
 
   def validate(program) do
     []
+    |> validate_known_formats(program)
     |> validate_any_steps(program)
     |> validate_final_step(program)
+    |> Enum.reverse()
 
     # |> validate_pump_sequence
+  end
+
+  def validate_known_formats(errors, program) do
+    Enum.reduce(program.steps, errors, fn
+      {:solenoid, _, _}, errors ->
+        errors
+
+      {:pump, _}, errors ->
+        errors
+
+      {:hydraulics, :halt}, errors ->
+        errors
+
+      {:wait, :timer, _}, errors ->
+        errors
+
+      step, errors ->
+        ["Unknown step #{inspect(step)}" | errors]
+    end)
   end
 
   def validate_any_steps(errors, program) do
@@ -33,7 +54,7 @@ defmodule CoffeeTimeFirmware.Barista.Program do
   def validate_final_step(errors, program) do
     case List.last(program.steps) do
       nil -> errors
-      {:wait, _} -> ["Final step cannot be a wait" | errors]
+      {:wait, _, _} -> ["Final step cannot be a wait" | errors]
       _ -> errors
     end
   end

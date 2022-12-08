@@ -59,9 +59,15 @@ defmodule CoffeeTimeFirmware.Barista do
   """
 
   def run_program(context, %__MODULE__.Program{} = program) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call({:run_program, program})
+    case __MODULE__.Program.validate(program) do
+      [] ->
+        context
+        |> name(__MODULE__)
+        |> GenStateMachine.call({:run_program, program})
+
+      errors ->
+        {:error, errors}
+    end
   end
 
   def run_program(context, name) do
