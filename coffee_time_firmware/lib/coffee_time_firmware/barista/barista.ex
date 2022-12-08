@@ -112,7 +112,9 @@ defmodule CoffeeTimeFirmware.Barista do
   ## Executing
   ###############
 
-  def handle_event(:enter, _, {:executing, program}, %{context: context} = data) do
+  def handle_event(:enter, old_state, {:executing, program}, %{context: context} = data) do
+    Util.log_state_change(__MODULE__, old_state, :executing)
+
     data = %{data | current_program: program, steps: program.steps}
 
     PubSub.broadcast(context, :barista, {:program_start, program})
@@ -148,11 +150,7 @@ defmodule CoffeeTimeFirmware.Barista do
   ###############
 
   def handle_event(:enter, old_state, new_state, data) do
-    Logger.debug("""
-    Barista Transitioning from:
-    Old: #{inspect(old_state)}
-    New: #{inspect(new_state)}
-    """)
+    Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
   end

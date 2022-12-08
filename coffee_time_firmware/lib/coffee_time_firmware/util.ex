@@ -22,4 +22,17 @@ defmodule CoffeeTimeFirmware.Util do
         receive_inspect_loop()
     end
   end
+
+  def log_state_change(module, old_state, new_state) do
+    name = module |> Module.split() |> List.last()
+
+    Logger.debug("""
+    #{name} Transitioning from:
+    Old: #{inspect(unwrap_state(old_state))}
+    New: #{inspect(unwrap_state(new_state))}
+    """)
+  end
+
+  defp unwrap_state(state) when is_atom(state), do: state
+  defp unwrap_state(state) when is_tuple(state), do: elem(state, 0)
 end

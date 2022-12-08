@@ -14,6 +14,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
 
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Boiler
+  alias CoffeeTimeFirmware.Util
 
   defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
 
@@ -74,7 +75,8 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   ## Boiler Fill
   ######################
 
-  def handle_event(:enter, _, :awaiting_boiler_fill, data) do
+  def handle_event(:enter, old_state, :awaiting_boiler_fill, data) do
+    Util.log_state_change(__MODULE__, old_state, :awaiting_boiler_fill)
     Boiler.DutyCycle.set(data.context, 0)
     :keep_state_and_data
   end
@@ -130,11 +132,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   def handle_event(:enter, old_state, new_state, data) do
-    Logger.debug("""
-    Boiler Transitioning from:
-    Old: #{inspect(old_state)}
-    New: #{inspect(new_state)}
-    """)
+    Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
   end

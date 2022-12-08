@@ -42,6 +42,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hardware
+  alias CoffeeTimeFirmware.Util
 
   defstruct [
     :context,
@@ -125,7 +126,9 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Ready
   ##################
 
-  def handle_event(:enter, _old_state, :ready, data) do
+  def handle_event(:enter, old_state, :ready, data) do
+    Util.log_state_change(__MODULE__, old_state, :ready)
+
     pump_off!(data)
     # NOTE TO self: It may be a good idea to add a small delay between turning the pump off
     # and closing the solenoids. Doing it "instantly" might produce a water hammer effect.
@@ -151,8 +154,8 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Boiler Filling
   ##################
 
-  def handle_event(:enter, old_state, :boiler_filling = new_state, data) do
-    log_state_transition(old_state, new_state)
+  def handle_event(:enter, old_state, :boiler_filling, data) do
+    Util.log_state_change(__MODULE__, old_state, :boiler_filling)
 
     refill_solenoid_open!(data)
     pump_on!(data)
@@ -185,7 +188,9 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Solenoid Management
   #####################
 
-  def handle_event(:enter, _, {:holding_solenoid, solenoid}, data) do
+  def handle_event(:enter, old_state, {:holding_solenoid, solenoid}, data) do
+    Util.log_state_change(__MODULE__, old_state, :holding_solenoid)
+
     case solenoid do
       :grouphead ->
         grouphead_solenoid_open!(data)
@@ -224,7 +229,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   end
 
   def handle_event(:enter, old_state, new_state, data) do
-    log_state_transition(old_state, new_state)
+    Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
   end
@@ -266,13 +271,5 @@ defmodule CoffeeTimeFirmware.Hydraulics do
       {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(hardware, pin_name)
       {pin_name, gpio}
     end)
-  end
-
-  defp log_state_transition(old_state, new_state) do
-    Logger.debug("""
-    Boiler Transitioning from:
-    Old: #{inspect(old_state)}
-    New: #{inspect(new_state)}
-    """)
   end
 end
