@@ -17,7 +17,10 @@ defmodule CoffeeTimeFirmware.Barista do
 
   defstruct [
     :context,
-    :db
+    :db,
+    :current_program,
+    steps: [],
+    timers: %{}
   ]
 
   def start_link(%{context: context} = params) do
@@ -32,8 +35,16 @@ defmodule CoffeeTimeFirmware.Barista do
     |> GenStateMachine.call(:boot)
   end
 
+  @spec save_program(any, CoffeeTimeFirmware.Barista.Program.t()) :: :ok | {:error, [String.t()]}
   def save_program(context, %__MODULE__.Program{name: name} = program) do
-    CubDB.put(name(context, :db), {:program, name}, program)
+    case __MODULE__.Program.validate(program) do
+      [] ->
+        CubDB.put(name(context, :db), {:program, name}, program)
+        :ok
+
+      errors ->
+        {:error, errors}
+    end
   end
 
   def get_program(context, name) do
@@ -95,17 +106,27 @@ defmodule CoffeeTimeFirmware.Barista do
   ## Executing
   ###############
 
-  def handle_event(:enter, _, {:executing, program}, %{context: context}) do
+  def handle_event(:enter, _, {:executing, program}, %{context: context} = data) do
+    data = %{data | current_program: program, steps: program.steps}
+
     PubSub.broadcast(context, :barista, {:program_start, program})
     link!(context, Hydraulics)
-    :ok = Hydraulics.open_solenoid(context, :grouphead)
 
-    # case program.grouphead_duration do
-    #   {:timer, time} ->
-    #     Util.send_after(self(), :halt_grouphead, time)
-    # end
+    send(self(), :advance_program)
 
-    :keep_state_and_data
+    {:keep_state, data}
+  end
+
+  def handle_event(:info, :advance_program, {:executing, program}, %{context: context} = data) do
+    case advance_program(data) do
+      %{steps: []} = data ->
+        unlink!(context, Hydraulics)
+        PubSub.broadcast(context, :barista, {:program_done, program})
+        {:next_state, :ready, %{data | current_program: nil}}
+
+      data ->
+        {:keep_state, data}
+    end
   end
 
   def handle_event({:call, from}, {:run_program, _}, {:executing, _}, _data) do
@@ -125,8 +146,44 @@ defmodule CoffeeTimeFirmware.Barista do
     {:keep_state, data}
   end
 
+  def advance_program(%{steps: []} = data) do
+    data
+  end
+
+  def advance_program(%{steps: [step | rest], context: context} = data) do
+    case step do
+      {:solenoid, solenoid, :open} ->
+        :ok = Hydraulics.open_solenoid(context, solenoid)
+        advance_program(%{data | steps: rest})
+
+      {:pump, :on} ->
+        :ok = Hydraulics.activate_pump(context)
+        advance_program(%{data | steps: rest})
+
+      {:pump, :off} ->
+        :ok = Hydraulics.deactivate_pump(context)
+        advance_program(%{data | steps: rest})
+
+      {:hydraulics, :halt} ->
+        :ok = Hydraulics.halt(context)
+        advance_program(%{data | steps: rest})
+
+      {:wait, time} = step ->
+        timer = Util.send_after(self(), :advance_program, time)
+
+        Map.update!(data, :timers, fn timers ->
+          Map.put(timers, step, timer)
+        end)
+    end
+  end
+
   defp link!(context, name) do
     [{pid, _}] = Registry.lookup(context.registry, name)
     Process.link(pid)
+  end
+
+  defp unlink!(context, name) do
+    [{pid, _}] = Registry.lookup(context.registry, name)
+    Process.unlink(pid)
   end
 end

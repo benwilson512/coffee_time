@@ -76,6 +76,12 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     |> GenStateMachine.call(:activate_pump)
   end
 
+  def deactivate_pump(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:deactivate_pump)
+  end
+
   def start_link(%{context: context} = params) do
     GenStateMachine.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)

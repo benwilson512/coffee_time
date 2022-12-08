@@ -46,13 +46,17 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       context: context
     } do
       PubSub.subscribe(context, :barista)
-      Barista.save_program(context, %Barista.Program{name: :test})
+
+      :ok =
+        Barista.save_program(context, %Barista.Program{
+          name: :test,
+          steps: [{:solenoid, :grouphead, :open}]
+        })
 
       assert :ok = Barista.run_program(context, :test)
 
-      assert {{:executing, _}, _} = :sys.get_state(name(context, Barista))
-
       assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
+      assert_receive({:broadcast, :barista, {:program_done, %{name: :test}}})
     end
   end
 
@@ -65,8 +69,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       Process.monitor(pid)
 
       program = %Barista.Program{
-        name: :espresso,
-        grouphead_duration: :invalid_value
+        name: :espresso
       }
 
       Barista.run_program(context, program)
@@ -84,19 +87,28 @@ defmodule CoffeeTimeFirmware.BaristaTest do
 
       program = %Barista.Program{
         name: :espresso,
-        grouphead_duration: {:timer, 10}
+        steps: [
+          {:solenoid, :grouphead, :open},
+          {:pump, :on},
+          {:hydraulics, :halt}
+        ]
       }
 
       assert :ok = Barista.run_program(context, program)
 
       assert_receive({:broadcast, :pump, :on})
       assert_receive({:broadcast, :grouphead_solenoid, :open})
+      assert_receive({:broadcast, :pump, :off})
+      assert_receive({:broadcast, :grouphead_solenoid, :close})
     end
 
     test "trying to start a program while another is in progress fails", %{context: context} do
       program = %Barista.Program{
         name: :espresso,
-        grouphead_duration: {:timer, :infinity}
+        steps: [
+          {:wait, :infinity},
+          {:solenoid, :grouphead, :on}
+        ]
       }
 
       assert :ok = Barista.run_program(context, program)

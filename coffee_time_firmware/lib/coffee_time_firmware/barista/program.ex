@@ -11,7 +11,30 @@ defmodule CoffeeTimeFirmware.Barista.Program do
   @enforce_keys [:name]
   defstruct [
     :name,
-    :grouphead_duration,
-    pump_delay: {:timer, 0}
+    steps: [],
+    remaining_steps: []
   ]
+
+  def validate(program) do
+    []
+    |> validate_any_steps(program)
+    |> validate_final_step(program)
+
+    # |> validate_pump_sequence
+  end
+
+  def validate_any_steps(errors, program) do
+    case program.steps do
+      [] -> ["Must include at least one step" | errors]
+      _ -> errors
+    end
+  end
+
+  def validate_final_step(errors, program) do
+    case List.last(program.steps) do
+      nil -> errors
+      {:wait, _} -> ["Final step cannot be a wait" | errors]
+      _ -> errors
+    end
+  end
 end

@@ -13,17 +13,13 @@ defmodule Help do
 
   @programs [
     %CoffeeTimeFirmware.Barista.Program{
-      name: :short_flush,
-      grouphead_duration: {:timer, 2000}
+      name: :short_flush
     },
     %CoffeeTimeFirmware.Barista.Program{
-      name: :long_flush,
-      grouphead_duration: {:timer, 10000}
+      name: :long_flush
     },
     %CoffeeTimeFirmware.Barista.Program{
-      name: :standard_espresso,
-      grouphead_duration: {:timer, 30000},
-      pump_delay: {:timer, 2000}
+      name: :standard_espresso
     }
   ]
   def __reseed__() do
