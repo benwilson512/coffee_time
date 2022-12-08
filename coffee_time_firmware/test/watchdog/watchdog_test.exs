@@ -112,12 +112,12 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
              } = Watchdog.get_fault(context)
     end
 
-    @tag healthcheck: %{cpu_temp: 10}
+    @tag healthcheck: %{cpu_temp: 50}
 
     test "cpu_temp ping makes it happy", %{context: context} do
-      Process.sleep(8)
+      Process.sleep(40)
       PubSub.broadcast(context, :cpu_temp, 50)
-      Process.sleep(8)
+      Process.sleep(40)
       # Even though we've slept for 16 total milliseconds which exceesd the 10ms limit,
       # we should still be OK because we got a ping in the middle which resets the timer
       assert nil == Watchdog.get_fault(context)
