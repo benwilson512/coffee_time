@@ -107,6 +107,32 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       assert_receive({:broadcast, :grouphead_solenoid, :close})
     end
 
+    test "wait works correctly", %{context: context} do
+      PubSub.subscribe(context, :grouphead_solenoid)
+      PubSub.subscribe(context, :pump)
+
+      program = %Barista.Program{
+        name: :espresso,
+        steps: [
+          {:solenoid, :grouphead, :open},
+          {:pump, :on},
+          {:wait, :timer, 50},
+          {:hydraulics, :halt}
+        ]
+      }
+
+      assert :ok = Barista.run_program(context, program)
+
+      assert_receive({:broadcast, :pump, :on})
+      assert_receive({:broadcast, :grouphead_solenoid, :open})
+      refute_receive({:broadcast, :pump, :off}, 0)
+      refute_receive({:broadcast, :grouphead_solenoid, :close}, 0)
+
+      Process.sleep(50)
+      assert_receive({:broadcast, :pump, :off})
+      assert_receive({:broadcast, :grouphead_solenoid, :close})
+    end
+
     test "trying to start a program while another is in progress fails", %{context: context} do
       program = %Barista.Program{
         name: :espresso,

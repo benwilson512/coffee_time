@@ -159,6 +159,10 @@ defmodule CoffeeTimeFirmware.Barista do
   end
 
   def advance_program(%{steps: [step | rest], context: context} = data) do
+    Logger.debug("""
+    Executing step: #{inspect(step)} | #{data.current_program.name}
+    """)
+
     case step do
       {:solenoid, solenoid, :open} ->
         :ok = Hydraulics.open_solenoid(context, solenoid)
@@ -179,9 +183,11 @@ defmodule CoffeeTimeFirmware.Barista do
       {:wait, :timer, time} = step ->
         timer = Util.send_after(self(), {:advance_program, step}, time)
 
-        Map.update!(data, :timers, fn timers ->
+        data
+        |> Map.update!(:timers, fn timers ->
           Map.put(timers, step, timer)
         end)
+        |> Map.replace!(:steps, rest)
     end
   end
 
