@@ -2,6 +2,20 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   @moduledoc """
   Handles controlling the solenoids and water pump.
 
+  ## Smart Functionality
+
+  The Hydraulics subsystem monitors the fill level of the steam boiler and will automatically
+  initiate a refill process if it isn't busy doing something else.
+
+  ## "Dumb" Functionality
+
+  As far as opening the solenoids or turning on the pump, this module has relatively simple responsibilities.
+  It won't let you turn on the pump if there isn't a solenoid open since that just needlessly pressurizes
+  the system, but it doesn't provide anything fancy as far as running the pump for a certain amount of
+  time. All the "smarts" sit over in `CoffeeTimeFirmware.Barista`.
+
+  ## General Design Decisions
+
   This is intentionally separate from the actual
   front panel controls on the espresso machine. It's better to have an API that can be called independent
   of the actual interface, whether that's push buttons, the command line (remote shell), or a future
@@ -11,6 +25,13 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   group heads, boilers, and pumps. I have 1 boiler, 1 pump, and 1 group head. I also have no idea
   how machines with multiples of those are plumped. If I ever add another boiler to my machine I'll
   figure things out at that point.
+
+  ## Internal notes
+
+  This is a :gen_statem process. The approach I'm using is that changes to solenoids and the pump
+  are all enacted at the `:enter` clauses for the states. This means that any state can for example
+  `{:next_state, :ready, data}` and rely on the `:ready` state to close all the solenoids and turn
+  off the pump without having to worry about turning the pump off from various different states.
   """
 
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
@@ -31,25 +52,34 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   def boot(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.cast(:boot)
+    |> GenStateMachine.call(:boot)
+  end
+
+  def halt(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:halt)
   end
 
   @doc """
-  Run water to the espresso group head.
-
-  ```
-  # 20 seconds
-  drive_grouphead(context, {:timer, 20000})
-  # 20 seconds with a 3 second delay before the pump starts
-  drive_grouphead(context, {:timer, 20000, pump_delay: 3000})
-  ```
-
-  TOOD: Support `{:flow_ticks, n}`.
+  Open a solenoid
   """
-  def drive_grouphead(context, mode) do
+  def open_solenoid(context, solenoid) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call({:drive_grouphead, mode})
+    |> GenStateMachine.call({:open_solenoid, solenoid})
+  end
+
+  def activate_pump(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:activate_pump)
+  end
+
+  def deactivate_pump(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:deactivate_pump)
   end
 
   def start_link(%{context: context} = params) do
@@ -70,7 +100,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Idle
   ####################
 
-  def handle_event(:cast, :boot, :idle, data) do
+  def handle_event({:call, from}, :boot, :idle, data) do
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
 
     next_state =
@@ -82,7 +112,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
           :boiler_filling
       end
 
-    {:next_state, next_state, data}
+    {:next_state, next_state, data, {:reply, from, :ok}}
   end
 
   def handle_event({:call, from}, _, :idle, _data) do
@@ -96,13 +126,25 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Ready
   ##################
 
-  def handle_event({:call, from}, {:drive_grouphead, mode}, :ready, data) do
-    case mode do
-      {:timer, duration} ->
-        Util.send_after(self(), :halt_grouphead, duration)
-    end
+  def handle_event(:enter, old_state, :ready, data) do
+    Util.log_state_change(__MODULE__, old_state, :ready)
 
-    {:next_state, :driving_grouphead, data, {:reply, from, :ok}}
+    pump_off!(data)
+    # NOTE TO self: It may be a good idea to add a small delay between turning the pump off
+    # and closing the solenoids. Doing it "instantly" might produce a water hammer effect.
+    # Need to test.
+    refill_solenoid_close!(data)
+    grouphead_solenoid_close!(data)
+
+    :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, {:open_solenoid, solenoid}, :ready, data) do
+    {:next_state, {:holding_solenoid, solenoid}, data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :activate_pump, :ready, _data) do
+    {:keep_state_and_data, {:reply, from, {:error, :no_open_solenoid}}}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :ready, data) do
@@ -112,8 +154,8 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Boiler Filling
   ##################
 
-  def handle_event(:enter, old_state, :boiler_filling = new_state, data) do
-    log_state_transition(old_state, new_state)
+  def handle_event(:enter, old_state, :boiler_filling, data) do
+    Util.log_state_change(__MODULE__, old_state, :boiler_filling)
 
     refill_solenoid_open!(data)
     pump_on!(data)
@@ -127,38 +169,56 @@ defmodule CoffeeTimeFirmware.Hydraulics do
         :keep_state_and_data
 
       :full ->
-        refill_solenoid_close!(data)
-        pump_off!(data)
-
         {:next_state, :ready, data}
     end
   end
 
-  def handle_event({:call, from}, {:drive_grouphead, _}, :boiler_filling, _) do
+  def handle_event({:call, from}, {:open_solenoid, _}, :boiler_filling, _) do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
-  ## Grouphead Driving
+  def handle_event({:call, from}, :activate_pump, :boiler_filling, _data) do
+    {:keep_state_and_data, {:reply, from, {:error, :busy}}}
+  end
+
+  def handle_event({:call, from}, :halt, :boiler_filling, _) do
+    {:keep_state_and_data, {:reply, from, {:error, :busy}}}
+  end
+
+  ## Solenoid Management
   #####################
 
-  def handle_event(:enter, _, :driving_grouphead, data) do
-    grouphead_solenoid_open!(data)
-    pump_on!(data)
+  def handle_event(:enter, old_state, {:holding_solenoid, solenoid}, data) do
+    Util.log_state_change(__MODULE__, old_state, :holding_solenoid)
+
+    case solenoid do
+      :grouphead ->
+        grouphead_solenoid_open!(data)
+    end
+
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :driving_grouphead, _) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, {:holding_solenoid, _}, _) do
     {:keep_state_and_data, :postpone}
   end
 
-  def handle_event({:call, from}, {:drive_grouphead, _}, :driving_grouphead, _data) do
+  def handle_event({:call, from}, {:open_solenoid, _}, {:holding_solenoid, _}, _data) do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
-  def handle_event(:info, :halt_grouphead, :driving_grouphead, data) do
+  def handle_event({:call, from}, :activate_pump, {:holding_solenoid, _}, data) do
+    pump_on!(data)
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :deactivate_pump, {:holding_solenoid, _}, data) do
     pump_off!(data)
-    grouphead_solenoid_close!(data)
-    {:next_state, :ready, data}
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :halt, {:holding_solenoid, _}, data) do
+    {:next_state, :ready, data, {:reply, from, :ok}}
   end
 
   ## Other
@@ -169,7 +229,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   end
 
   def handle_event(:enter, old_state, new_state, data) do
-    log_state_transition(old_state, new_state)
+    Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
   end
@@ -211,13 +271,5 @@ defmodule CoffeeTimeFirmware.Hydraulics do
       {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(hardware, pin_name)
       {pin_name, gpio}
     end)
-  end
-
-  defp log_state_transition(old_state, new_state) do
-    Logger.debug("""
-    Boiler Transitioning from:
-    Old: #{inspect(old_state)}
-    New: #{inspect(new_state)}
-    """)
   end
 end

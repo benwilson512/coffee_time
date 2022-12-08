@@ -54,42 +54,64 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
     end
   end
 
-  describe "espresso brewing" do
+  describe "solenoid control" do
     setup :boot
 
-    test "attempting to pull espresso during a refill is refused", %{context: context} do
+    test "attempting to open a solenoid during a refill is refused", %{context: context} do
       Measurement.Store.put(context, :boiler_fill_status, :low)
       assert assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
-      assert Hydraulics.drive_grouphead(context, {:timer, 0}) == {:error, :busy}
+      assert Hydraulics.open_solenoid(context, :grouphead) == {:error, :busy}
     end
 
-    test "we can pull some espresso", %{context: context} do
-      assert :ok = Hydraulics.drive_grouphead(context, {:timer, 0})
+    test "attempting to turn on the pump during a refill is refused", %{context: context} do
+      Measurement.Store.put(context, :boiler_fill_status, :low)
+      assert assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
+      assert Hydraulics.activate_pump(context) == {:error, :busy}
+    end
 
+    test "we can open the grouphead solenoid", %{context: context} do
+      assert :ok = Hydraulics.open_solenoid(context, :grouphead)
+
+      # remember that solenoid control is ACTIVE LOW logic.
       assert_receive({:write_gpio, :grouphead_solenoid, 0})
-      assert_receive({:write_gpio, :pump, 0})
 
-      assert {:driving_grouphead, _} = :sys.get_state(name(context, Hydraulics))
+      assert {{:holding_solenoid, _}, _} = :sys.get_state(name(context, Hydraulics))
 
       assert_receive({:write_gpio, :grouphead_solenoid, 1})
       assert_receive({:write_gpio, :pump, 1})
     end
 
-    test "calling drive group head while it's in progress does nothing", %{context: context} do
-      assert :ok = Hydraulics.drive_grouphead(context, {:timer, :infinity})
-      assert {:error, :busy} = Hydraulics.drive_grouphead(context, {:timer, :infinity})
+    test "we can turn on the pump while a solenoid is open", %{context: context} do
+      assert :ok = Hydraulics.open_solenoid(context, :grouphead)
+      assert :ok = Hydraulics.activate_pump(context)
     end
 
-    test "pulling espresso delays boiler refill", %{context: context} do
-      Hydraulics.drive_grouphead(context, {:timer, :infinity})
+    test "we cannot turn on the pump when no solenoid is open", %{context: context} do
+      assert {:error, :no_open_solenoid} = Hydraulics.activate_pump(context)
+    end
+
+    test "calling drive group head while it's in progress does nothing", %{context: context} do
+      assert :ok = Hydraulics.open_solenoid(context, :grouphead)
+      assert {:error, :busy} = Hydraulics.open_solenoid(context, :grouphead)
+    end
+
+    test "open solenoid delays boiler refill", %{context: context} do
+      Hydraulics.open_solenoid(context, :grouphead)
       Measurement.Store.put(context, :boiler_fill_status, :low)
       # we wait for the grouphead to cycle
       assert_receive({:write_gpio, :grouphead_solenoid, 0})
-      send(lookup_pid(context, Hydraulics), :halt_grouphead)
+      Hydraulics.halt(context)
       assert_receive({:write_gpio, :grouphead_solenoid, 1})
 
       assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
       assert_receive({:write_gpio, :refill_solenoid, 0})
+    end
+
+    test "halt/1 can stop things", %{context: context} do
+      Hydraulics.open_solenoid(context, :grouphead)
+      assert_receive({:write_gpio, :grouphead_solenoid, 0})
+      Hydraulics.halt(context)
+      assert_receive({:write_gpio, :grouphead_solenoid, 1})
     end
   end
 
