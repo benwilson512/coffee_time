@@ -42,7 +42,6 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hardware
-  alias CoffeeTimeFirmware.Util
 
   defstruct [
     :context,
@@ -52,7 +51,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   def boot(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.cast(:boot)
+    |> GenStateMachine.call(:boot)
   end
 
   def halt(context) do
@@ -100,7 +99,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   ## Idle
   ####################
 
-  def handle_event(:cast, :boot, :idle, data) do
+  def handle_event({:call, from}, :boot, :idle, data) do
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
 
     next_state =
@@ -112,7 +111,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
           :boiler_filling
       end
 
-    {:next_state, next_state, data}
+    {:next_state, next_state, data, {:reply, from, :ok}}
   end
 
   def handle_event({:call, from}, _, :idle, _data) do

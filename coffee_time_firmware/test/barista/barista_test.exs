@@ -22,6 +22,8 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   end
 
   describe "boot process" do
+    setup :spawn_subsystems
+
     test "works", %{
       context: context
     } do
@@ -149,6 +151,17 @@ defmodule CoffeeTimeFirmware.BaristaTest do
 
   defp spawn_subsystems(%{context: context} = info) do
     start_supervised!({CoffeeTimeFirmware.Hydraulics, %{context: context}})
+
+    start_supervised!(
+      {CoffeeTimeFirmware.Boiler,
+       %{
+         context: context,
+         intervals: %{
+           CoffeeTimeFirmware.Boiler.DutyCycle => %{write_interval: :infinity}
+         }
+       }}
+    )
+
     info
   end
 

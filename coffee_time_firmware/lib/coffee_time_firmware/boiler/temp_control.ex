@@ -20,7 +20,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   def boot(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.cast(:boot)
+    |> GenStateMachine.call(:boot)
   end
 
   def set_target_temp(context, temp) do
@@ -40,7 +40,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:ok, :idle, data}
   end
 
-  def handle_event(:cast, :boot, :idle, data) do
+  def handle_event({:call, from}, :boot, :idle, data) do
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
     Measurement.Store.subscribe(data.context, :boiler_temp)
 
@@ -55,7 +55,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
           :awaiting_boiler_fill
       end
 
-    {:next_state, next_state, data}
+    {:next_state, next_state, data, {:reply, from, :ok}}
   end
 
   ## General Commands
