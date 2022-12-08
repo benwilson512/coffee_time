@@ -1,5 +1,5 @@
 defmodule CoffeeTimeFirmware.BaristaTest do
-  use CoffeeTimeFirmware.ContextCase, async: true
+  use CoffeeTimeFirmware.ContextCase
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
