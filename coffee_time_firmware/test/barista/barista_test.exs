@@ -69,7 +69,10 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       Process.monitor(pid)
 
       program = %Barista.Program{
-        name: :espresso
+        name: :espresso,
+        steps: [
+          {:wait, :timer, :infinity}
+        ]
       }
 
       Barista.run_program(context, program)
