@@ -71,11 +71,13 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       program = %Barista.Program{
         name: :espresso,
         steps: [
-          {:wait, :timer, :infinity}
+          {:wait, :timer, :infinity},
+          {:hydraulics, :halt}
         ]
       }
 
-      Barista.run_program(context, program)
+      :ok = Barista.run_program(context, program)
+      {{:executing, _}, _} = :sys.get_state(name(context, Barista))
 
       [{hydraulics_pid, _}] = Registry.lookup(context.registry, CoffeeTimeFirmware.Hydraulics)
 
