@@ -112,12 +112,17 @@ defmodule CoffeeTimeFirmware.Barista do
     PubSub.broadcast(context, :barista, {:program_start, program})
     link!(context, Hydraulics)
 
-    send(self(), :advance_program)
+    send(self(), {:advance_program, nil})
 
     {:keep_state, data}
   end
 
-  def handle_event(:info, :advance_program, {:executing, program}, %{context: context} = data) do
+  def handle_event(:info, {:advance_program, timer}, {:executing, program}, data) do
+    %{context: context} = data
+
+    # Clear the timer if we were given one
+    data = Map.update!(data, :timers, &Map.delete(&1, timer))
+
     case advance_program(data) do
       %{steps: []} = data ->
         unlink!(context, Hydraulics)
@@ -146,6 +151,9 @@ defmodule CoffeeTimeFirmware.Barista do
     {:keep_state, data}
   end
 
+  ## Program Execution Loop
+  #########################
+
   def advance_program(%{steps: []} = data) do
     data
   end
@@ -168,14 +176,17 @@ defmodule CoffeeTimeFirmware.Barista do
         :ok = Hydraulics.halt(context)
         advance_program(%{data | steps: rest})
 
-      {:wait, time} = step ->
-        timer = Util.send_after(self(), :advance_program, time)
+      {:wait, :timer, time} = step ->
+        timer = Util.send_after(self(), {:advance_program, step}, time)
 
         Map.update!(data, :timers, fn timers ->
           Map.put(timers, step, timer)
         end)
     end
   end
+
+  ## Helpers
+  ######################
 
   defp link!(context, name) do
     [{pid, _}] = Registry.lookup(context.registry, name)

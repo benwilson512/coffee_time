@@ -106,7 +106,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
       program = %Barista.Program{
         name: :espresso,
         steps: [
-          {:wait, :infinity},
+          {:wait, :timer, :infinity},
           {:solenoid, :grouphead, :on}
         ]
       }
