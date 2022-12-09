@@ -37,7 +37,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
     end
 
-    test "If the boiler is low we refill it. Upon refill we are in boot warmup", %{
+    test "If the boiler is low we refill it. Upon refill we enter temp hold", %{
       context: context
     } do
       PubSub.subscribe(context, :boiler_duty_cycle)
@@ -77,5 +77,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       # and then shut off until we get the full signal.
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
     end
+
+    test "after the boiler is refilled we return to temp control"
   end
 end

@@ -58,7 +58,7 @@ defmodule CoffeeTimeFirmware.Context do
         boiler_fill_status: :timer.seconds(5)
       },
       threshold: %{
-        cpu_temp: 50,
+        cpu_temp: 70,
         boiler_temp: 130
       }
     }

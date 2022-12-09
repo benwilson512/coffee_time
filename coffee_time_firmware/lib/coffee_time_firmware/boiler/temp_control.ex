@@ -77,8 +77,10 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
 
   def handle_event(:enter, old_state, :awaiting_boiler_fill, data) do
     Util.log_state_change(__MODULE__, old_state, :awaiting_boiler_fill)
-    Boiler.DutyCycle.set(data.context, 0)
-    :keep_state_and_data
+    data = %{data | target_duty_cycle: 0}
+    set_duty_cycle!(data)
+
+    {:keep_state, %{data | target_duty_cycle: 0}}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
@@ -93,7 +95,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     end
   end
 
-  def handle_event(:info, {:broadcast, _, _}, :boot_fill, _) do
+  def handle_event(:info, {:broadcast, _, _}, :awaiting_boiler_fill, _) do
     :keep_state_and_data
   end
 
@@ -113,8 +115,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
       end
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
-      Logger.info("Changing duty cycle: #{data.target_duty_cycle}")
-      Boiler.DutyCycle.set(data.context, data.target_duty_cycle)
+      set_duty_cycle!(data)
     end
 
     {:keep_state, data}
@@ -135,5 +136,10 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  defp set_duty_cycle!(%{target_duty_cycle: cycle, context: context}) do
+    Logger.info("Changing duty cycle: #{cycle}")
+    :ok = Boiler.DutyCycle.set(context, cycle)
   end
 end
