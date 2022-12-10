@@ -6,6 +6,7 @@ defmodule CoffeeTimeFirmware.ControlPanelTest do
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.ControlPanel
+  alias CoffeeTimeFirmware.Barista
 
   @moduletag :measurement_store
   @moduletag :watchdog
@@ -57,5 +58,37 @@ defmodule CoffeeTimeFirmware.ControlPanelTest do
 
       assert {:ready, _} = :sys.get_state(name(context, ControlPanel))
     end
+  end
+
+  describe "button presses" do
+    setup [:boot]
+  end
+
+  describe "barista notifications" do
+    setup [:boot, :boot_barista]
+
+    test "message from barista displays the right LED", %{context: context} do
+      :ok =
+        Barista.run_program(context, %Barista.Program{name: :foo, steps: [{:hydraulics, :halt}]})
+
+      # things shouldn't blow up.
+      Process.sleep(100)
+    end
+  end
+
+  defp boot(%{context: context}) do
+    {:ok, _} =
+      ControlPanel.start_link(%{
+        context: context,
+        config: %{fault_blink_rate: :infinity}
+      })
+
+    :ok
+  end
+
+  defp boot_barista(%{context: context}) do
+    start_supervised!({Barista, %{context: context}})
+
+    :ok
   end
 end

@@ -28,6 +28,15 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
       {:ok, key}
     end
 
+    def set_interrupts(_, gpio, trigger) do
+      if trigger in [:falling, :both] do
+        # initial value
+        send(self(), {:circuits_gpio, gpio, System.monotonic_time(), 0})
+      end
+
+      gpio
+    end
+
     def write_gpio(mock, gpio, val) do
       send(mock.pid, {:write_gpio, gpio, val})
     end

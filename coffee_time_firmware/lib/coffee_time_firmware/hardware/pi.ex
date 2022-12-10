@@ -5,11 +5,15 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
   # for the logic of the genserver, but it's very important for the circuit.
   @pin_layout %{
     # front panel
-    # 6 => nil,
-    # 13 => nil,
-    # 19 => nil,
-    # 26 => nil,
-    # 17 => nil, water flow meter
+    6 => {:button1, :input, pull_mode: :pulldown},
+    13 => {:button3, :input, pull_mode: :pulldown},
+    19 => {:button2, :input, pull_mode: :pulldown},
+    26 => {:button4, :input, pull_mode: :pulldown},
+    {:stub, 1} => {:led1, :output, initial_value: 0},
+    {:stub, 2} => {:led2, :output, initial_value: 0},
+    {:stub, 3} => {:led3, :output, initial_value: 0},
+    {:stub, 4} => {:led4, :output, initial_value: 0},
+    17 => {:flow, :input, pull_mode: :pulldown},
     16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
     18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
     20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},
@@ -23,6 +27,8 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
               end)
 
   defimpl CoffeeTimeFirmware.Hardware do
+    require Logger
+
     def read_boiler_probe_temp(_) do
       Max31865.get_temp()
     end
@@ -38,8 +44,22 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
     end
 
     def open_gpio(%{pin_layout: pin_layout}, key) do
-      {number, io, opts} = Map.fetch!(pin_layout, key)
-      Circuits.GPIO.open(number, io, opts)
+      case Map.fetch!(pin_layout, key) do
+        {{:stub, _} = stub, :output, _} ->
+          {:ok, stub}
+
+        {number, io, opts} ->
+          Circuits.GPIO.open(number, io, opts)
+      end
+    end
+
+    def set_interrupts(_, gpio, trigger) do
+      Circuits.GPIO.set_interrupts(gpio, trigger)
+      Circuits.GPIO.pin(gpio)
+    end
+
+    def write_gpio(_, {:stub, n}, val) do
+      Logger.debug("write_gpio: #{n}, #{val}")
     end
 
     def write_gpio(_, gpio, val) do

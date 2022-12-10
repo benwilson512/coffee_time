@@ -44,6 +44,8 @@ defmodule Help do
   def __reseed__() do
     context = context()
     Enum.each(@programs, &CoffeeTimeFirmware.Barista.save_program(context, &1))
+    [{db, _}] = Registry.lookup(context.registry, :db)
+    CubDB.put(db, {:control_panel, :button1}, {:program, :short_flush})
   end
 
   def __restart__() do
