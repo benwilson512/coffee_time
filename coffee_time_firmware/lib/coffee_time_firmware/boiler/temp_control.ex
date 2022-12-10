@@ -35,8 +35,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
 
     data = %__MODULE__{
       context: context,
-      target_temperature: stored_temp || 0
+      target_temperature: stored_temp || 0,
+      target_duty_cycle: 0
     }
+
+    set_duty_cycle!(data)
+
+    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_temp`
+    # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
     Measurement.Store.subscribe(data.context, :boiler_temp)

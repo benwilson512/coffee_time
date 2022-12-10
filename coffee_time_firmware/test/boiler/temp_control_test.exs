@@ -97,6 +97,49 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
     end
   end
 
+  @tag :capture_log
+  test "crashing resets to the correct state", %{context: context} do
+    PubSub.subscribe(context, :boiler_duty_cycle)
+    Measurement.Store.put(context, :boiler_fill_status, :full)
+
+    pid =
+      start_supervised!(
+        {CoffeeTimeFirmware.Boiler,
+         %{
+           context: context,
+           intervals: %{
+             Boiler.DutyCycle => %{write_interval: :infinity}
+           }
+         }}
+      )
+
+    # initial boot messages
+    assert_receive({:broadcast, :boiler_duty_cycle, 0})
+    assert_receive({:write_gpio, :duty_cycle, 0})
+
+    :ok = TempControl.set_target_temp(context, 125)
+
+    assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
+
+    # send a temp so we trigger heating
+    Measurement.Store.put(context, :boiler_temp, 120)
+    assert_receive({:broadcast, :boiler_duty_cycle, 10})
+    assert_receive({:write_gpio, :duty_cycle, 1})
+    refute_receive(_)
+
+    Process.monitor(pid)
+    Process.exit(pid, :kill)
+
+    assert_receive({:DOWN, _, :process, _, :killed})
+
+    # it should reboot all the children, which means we get the boot messages again
+    assert_receive({:broadcast, :boiler_duty_cycle, 0})
+    assert_receive({:write_gpio, :duty_cycle, 0})
+
+    # We're in the temp hold
+    assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
+  end
+
   def boot(%{context: context}) do
     {:ok, _} =
       CoffeeTimeFirmware.Boiler.start_link(%{
