@@ -98,7 +98,14 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   end
 
   def handle_event(:info, {:circuits_gpio, interrupt_ref, timestamp, 1}, :ready, data) do
-    {:next_state, {:press, interrupt_ref, timestamp}, data}
+    Process.sleep(150)
+    gpio = data.gpio_pins[data.interrupts[interrupt_ref]]
+
+    if Circuits.GPIO.read(gpio) == 1 do
+      {:next_state, {:press, interrupt_ref, timestamp}, data}
+    else
+      :keep_state_and_data
+    end
   end
 
   def handle_event(:info, {:broadcast, :barista, _}, :ready, _data) do
@@ -137,7 +144,9 @@ defmodule CoffeeTimeFirmware.ControlPanel do
 
   ## Watching
   ###############
-  def handle_event(:enter, _, {:watching, _, _}, data) do
+  def handle_event(:enter, old_state, {:watching, _, _} = new_state, data) do
+    Util.log_state_change(__MODULE__, old_state, new_state)
+
     data = monitor_barista(data)
     {:keep_state, data}
   end
@@ -146,7 +155,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :barista, :program_done}, {:watching, _, _}, data) do
+  def handle_event(:info, {:broadcast, :barista, {:program_done, _}}, {:watching, _, _}, data) do
     data = demonitor_barista(data)
     {:next_state, :ready, data}
   end

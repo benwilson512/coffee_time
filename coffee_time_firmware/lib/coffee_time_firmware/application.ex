@@ -33,6 +33,7 @@ defmodule CoffeeTimeFirmware.Application do
       # The control panel goes pretty high in the list because we want it to be able to reliably
       # display whatever is going on with the items below.
       {CoffeeTimeFirmware.ControlPanel, %{context: context, config: panel_config}},
+      # {CoffeeTimeFirmware.ControlPanelDebugger, %{context: context}},
       {CoffeeTimeFirmware.Measurement, %{context: context}},
       {CoffeeTimeFirmware.Hydraulics, %{context: context}},
       {CoffeeTimeFirmware.Boiler, %{context: context}},
