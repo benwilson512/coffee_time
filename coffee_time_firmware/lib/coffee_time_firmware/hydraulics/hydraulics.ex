@@ -94,9 +94,6 @@ defmodule CoffeeTimeFirmware.Hydraulics do
       CoffeeTimeFirmware.Watchdog.get_fault(context) ->
         {:ok, :idle, data}
 
-      Measurement.Store.fetch!(data.context, :boiler_fill_status) == :low ->
-        {:ok, :boiler_filling, data}
-
       true ->
         {:ok, :ready, data}
     end

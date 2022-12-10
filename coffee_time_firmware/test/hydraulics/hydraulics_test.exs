@@ -32,38 +32,12 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
     end
 
     test "if there is no fault we are ready to go", %{context: context} do
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
       {:ok, _} =
         Hydraulics.start_link(%{
           context: context
         })
 
       assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
-    end
-
-    test "If the boiler is low we refill it. Upon refill we go back to ready", %{
-      context: context
-    } do
-      Measurement.Store.put(context, :boiler_fill_status, :low)
-
-      {:ok, _} =
-        Hydraulics.start_link(%{
-          context: context
-        })
-
-      assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
-
-      # 0s activate the relay not 1s here
-      assert_receive({:write_gpio, :refill_solenoid, 0})
-      assert_receive({:write_gpio, :pump, 0})
-
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
-      assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
-
-      assert_receive({:write_gpio, :refill_solenoid, 1})
-      assert_receive({:write_gpio, :pump, 1})
     end
   end
 
@@ -129,8 +103,6 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
   end
 
   defp boot(%{context: context} = info) do
-    Measurement.Store.put(context, :boiler_fill_status, :full)
-
     {:ok, _} =
       Hydraulics.start_link(%{
         context: context
