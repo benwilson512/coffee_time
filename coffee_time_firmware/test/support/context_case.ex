@@ -25,8 +25,14 @@ defmodule CoffeeTimeFirmware.ContextCase do
       data_dir: dir
     }
 
+    cubdb_opts = [
+      name: CoffeeTimeFirmware.Application.name(context, :db),
+      data_dir: Path.join(context.data_dir, "coffeetime_db")
+    ]
+
     {:ok, _x} = Registry.start_link(keys: :unique, name: context.registry, partitions: 1)
     {:ok, _x} = Registry.start_link(keys: :duplicate, name: context.pubsub, partitions: 1)
+    {:ok, _x} = CubDB.start_link(cubdb_opts)
 
     if Map.get(info, :watchdog) do
       config = %{

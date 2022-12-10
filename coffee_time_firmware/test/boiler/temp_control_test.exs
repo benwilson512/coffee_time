@@ -47,7 +47,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
 
       boot(info)
 
-      TempControl.set_target_temp(context, 128)
+      :ok = TempControl.set_target_temp(context, 127)
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
 
       Measurement.Store.put(context, :boiler_fill_status, :full)

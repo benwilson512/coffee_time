@@ -16,7 +16,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Util
 
-  defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
+  defstruct target_temperature: 0, context: nil, target_duty_cycle: 0
 
   def set_target_temp(context, temp) do
     context
@@ -31,7 +31,12 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   def init(context) do
-    data = %__MODULE__{context: context}
+    stored_temp = CubDB.get(name(context, :db), :target_temp)
+
+    data = %__MODULE__{
+      context: context,
+      target_temperature: stored_temp || 0
+    }
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
     Measurement.Store.subscribe(data.context, :boiler_temp)
@@ -53,6 +58,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
     {response, data} =
       if temp < 128 do
+        CubDB.put(name(data.context, :db), :target_temp, temp)
         {:ok, %{data | target_temperature: temp}}
       else
         {{:error, :unsafe_temp}, data}
