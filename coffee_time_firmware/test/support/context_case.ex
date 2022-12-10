@@ -28,6 +28,34 @@ defmodule CoffeeTimeFirmware.ContextCase do
     {:ok, _x} = Registry.start_link(keys: :unique, name: context.registry, partitions: 1)
     {:ok, _x} = Registry.start_link(keys: :duplicate, name: context.pubsub, partitions: 1)
 
+    if Map.get(info, :watchdog) do
+      config = %{
+        reboot_on_fault: false,
+        deadline: %{
+          pump: :infinity,
+          grouphead_solenoid: :infinity,
+          refill_solenoid: :infinity
+        },
+        healthcheck: %{
+          cpu_temp: :infinity,
+          boiler_temp: :infinity,
+          boiler_fill_status: :infinity
+        },
+        threshold: %{
+          cpu_temp: 1000,
+          boiler_temp: 1000
+        }
+      }
+
+      start_supervised!(
+        {CoffeeTimeFirmware.Watchdog,
+         %{
+           context: context,
+           config: config
+         }}
+      )
+    end
+
     if Map.get(info, :measurement_store) do
       {:ok, _} = CoffeeTimeFirmware.Measurement.Store.start_link(%{context: context})
     end

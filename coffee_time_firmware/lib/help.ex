@@ -34,7 +34,7 @@ defmodule Help do
       name: :standard_espresso,
       steps: [
         {:solenoid, :grouphead, :open},
-        {:wait, :timer, 2000},
+        {:wait, :timer, 4000},
         {:pump, :on},
         {:wait, :timer, 30000},
         {:hydraulics, :halt}

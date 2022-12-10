@@ -3,32 +3,43 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.PubSub
+  alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hydraulics
   # alias CoffeeTimeFirmware.Hardware
 
   @moduletag :measurement_store
-
-  setup %{context: context} do
-    {:ok, _} =
-      Hydraulics.start_link(%{
-        context: context
-      })
-
-    {:ok, %{context: context}}
-  end
-
-  test "initial state is sane", %{context: context} do
-    assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
-  end
+  @moduletag :watchdog
 
   describe "boot process" do
-    test "if the boiler is full we go to the ready state", %{
+    @tag :capture_log
+    test "If there is a fault we go to the idle state", %{
       context: context
     } do
       Measurement.Store.put(context, :boiler_fill_status, :full)
 
-      Hydraulics.boot(context)
+      PubSub.subscribe(context, :watchdog)
+
+      Watchdog.fault!(context, "test")
+
+      assert_receive({:broadcast, :watchdog, :fault_state})
+
+      {:ok, _} =
+        Hydraulics.start_link(%{
+          context: context
+        })
+
+      assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
+    end
+
+    test "if there is no fault we are ready to go", %{context: context} do
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
+      {:ok, _} =
+        Hydraulics.start_link(%{
+          context: context
+        })
 
       assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     end
@@ -37,7 +48,11 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
       context: context
     } do
       Measurement.Store.put(context, :boiler_fill_status, :low)
-      Hydraulics.boot(context)
+
+      {:ok, _} =
+        Hydraulics.start_link(%{
+          context: context
+        })
 
       assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
 
@@ -117,7 +132,12 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
 
   defp boot(%{context: context} = info) do
     Measurement.Store.put(context, :boiler_fill_status, :full)
-    Hydraulics.boot(context)
+
+    {:ok, _} =
+      Hydraulics.start_link(%{
+        context: context
+      })
+
     assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     info
   end

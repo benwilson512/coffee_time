@@ -51,6 +51,17 @@ defmodule CoffeeTimeFirmware.Barista do
     CubDB.get(name(context, :db), {:program, name})
   end
 
+  def list_programs(context) do
+    # the min key max key stuff is a bit weird, but this is basically an artifact of
+    # erlang term ordering. CubDB does everything via range queries, and
+    # `1` is less than all atoms, and tuples are greater than all atoms. So if you want all keys that
+    # are {:program, *} you just use 1 and {} to be less than and greater than all atoms respectively.
+    context
+    |> name(:db)
+    |> CubDB.select(min_key: {:program, 1}, max_key: {:program, {}})
+    |> Enum.to_list()
+  end
+
   @doc """
   Run a Barista program.
 

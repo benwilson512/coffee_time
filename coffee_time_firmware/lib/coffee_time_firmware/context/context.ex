@@ -43,9 +43,8 @@ defmodule CoffeeTimeFirmware.Context do
     pid
   end
 
-  def watchdog_config(:rpi3) do
+  def watchdog_config(_) do
     %{
-      fault_file_path: "/data/fault.json",
       reboot_on_fault: true,
       deadline: %{
         pump: :timer.seconds(60),
@@ -62,14 +61,5 @@ defmodule CoffeeTimeFirmware.Context do
         boiler_temp: 130
       }
     }
-  end
-
-  def watchdog_config(:host) do
-    path =
-      :code.priv_dir(:coffee_time_firmware)
-      |> Path.join("fault.json")
-
-    watchdog_config(:rpi3)
-    |> Map.replace!(:fault_file_path, path)
   end
 end
