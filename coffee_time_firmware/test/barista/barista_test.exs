@@ -11,7 +11,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   @moduletag :watchdog
 
   setup %{context: context} do
-    {:ok, _} = start_supervised({Barista.Super, %{context: context}})
+    {:ok, _} = start_supervised({Barista, %{context: context}})
 
     [{pid, _}] = Registry.lookup(context.registry, CoffeeTimeFirmware.Barista)
 

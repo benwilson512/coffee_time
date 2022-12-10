@@ -29,7 +29,7 @@ defmodule CoffeeTimeFirmware.Application do
       {CoffeeTimeFirmware.Measurement, %{context: context}},
       {CoffeeTimeFirmware.Hydraulics, %{context: context}},
       {CoffeeTimeFirmware.Boiler, %{context: context}},
-      {CoffeeTimeFirmware.Barista.Super, %{context: context}}
+      {CoffeeTimeFirmware.Barista, %{context: context}}
     ]
     |> List.flatten()
   end
