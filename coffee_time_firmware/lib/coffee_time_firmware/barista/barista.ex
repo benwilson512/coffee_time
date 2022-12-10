@@ -9,7 +9,6 @@ defmodule CoffeeTimeFirmware.Barista do
 
   require Logger
   alias CoffeeTimeFirmware.PubSub
-  alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Hydraulics
   alias CoffeeTimeFirmware.Util
   # alias CoffeeTimeFirmware.PubSub
@@ -27,12 +26,6 @@ defmodule CoffeeTimeFirmware.Barista do
     GenStateMachine.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
     )
-  end
-
-  def boot(context) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
   end
 
   @spec save_program(any, CoffeeTimeFirmware.Barista.Program.t()) :: :ok | {:error, [String.t()]}
@@ -102,15 +95,10 @@ defmodule CoffeeTimeFirmware.Barista do
     [{db, _}] = Registry.lookup(context.registry, :db)
     state = %__MODULE__{context: context, db: db}
 
-    {:ok, :idle, state}
-  end
-
-  ## Idle
-
-  def handle_event({:call, from}, :boot, :idle, data) do
-    Boiler.TempControl.boot(data.context)
-    Hydraulics.boot(data.context)
-    {:next_state, :ready, data, {:reply, from, :done}}
+    # This module doesn't need an `:idle` state since it doesn't directly control anything. If you ask
+    # the barista process to try to run a program while the hydraulics or temp control is idle due to
+    # a fault it will simply crash. No need to manage it in a fancy way.
+    {:ok, :ready, state}
   end
 
   ## Ready

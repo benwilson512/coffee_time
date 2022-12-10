@@ -8,6 +8,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   alias CoffeeTimeFirmware.Measurement
 
   @moduletag :measurement_store
+  @moduletag :watchdog
 
   setup %{context: context} do
     {:ok, _} = start_supervised({Barista.Super, %{context: context}})
@@ -17,26 +18,8 @@ defmodule CoffeeTimeFirmware.BaristaTest do
     {:ok, %{context: context, barista_pid: pid}}
   end
 
-  test "initial state is sane", %{context: context} do
-    assert {:idle, _} = :sys.get_state(name(context, Barista))
-  end
-
-  describe "boot process" do
-    setup :spawn_subsystems
-
-    test "works", %{
-      context: context
-    } do
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
-      Barista.boot(context)
-
-      assert {:ready, _} = :sys.get_state(name(context, Barista))
-    end
-  end
-
   describe "Program sanity checks" do
-    setup [:spawn_subsystems, :boot]
+    setup [:spawn_subsystems]
 
     test "running a program that doesn't exist returns an error", %{context: context} do
       assert {:error, :not_found} = Barista.run_program(context, :does_not_exist)
@@ -63,7 +46,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   end
 
   describe "Real Programs" do
-    setup [:spawn_subsystems, :boot]
+    setup [:spawn_subsystems]
 
     @tag :capture_log
     test "when executing a program the barista process lives or dies with the hydraulics process",
@@ -150,6 +133,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
   end
 
   defp spawn_subsystems(%{context: context} = info) do
+    Measurement.Store.put(context, :boiler_fill_status, :full)
     start_supervised!({CoffeeTimeFirmware.Hydraulics, %{context: context}})
 
     start_supervised!(
@@ -162,13 +146,6 @@ defmodule CoffeeTimeFirmware.BaristaTest do
        }}
     )
 
-    info
-  end
-
-  defp boot(%{context: context} = info) do
-    Measurement.Store.put(context, :boiler_fill_status, :full)
-    Barista.boot(context)
-    assert {:ready, _} = :sys.get_state(name(context, Barista))
     info
   end
 end
