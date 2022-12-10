@@ -3,54 +3,41 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
+  alias CoffeeTimeFirmware.PubSub
+  alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hydraulics
   # alias CoffeeTimeFirmware.Hardware
 
   @moduletag :measurement_store
-
-  setup %{context: context} do
-    {:ok, _} =
-      Hydraulics.start_link(%{
-        context: context
-      })
-
-    {:ok, %{context: context}}
-  end
-
-  test "initial state is sane", %{context: context} do
-    assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
-  end
+  @moduletag :watchdog
 
   describe "boot process" do
-    test "if the boiler is full we go to the ready state", %{
+    @tag :capture_log
+    test "If there is a fault we go to the idle state", %{
       context: context
     } do
-      Measurement.Store.put(context, :boiler_fill_status, :full)
+      PubSub.subscribe(context, :watchdog)
 
-      Hydraulics.boot(context)
+      Watchdog.fault!(context, "test")
 
-      assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
+      assert_receive({:broadcast, :watchdog, :fault_state})
+
+      {:ok, _} =
+        Hydraulics.start_link(%{
+          context: context
+        })
+
+      assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
     end
 
-    test "If the boiler is low we refill it. Upon refill we go back to ready", %{
-      context: context
-    } do
-      Measurement.Store.put(context, :boiler_fill_status, :low)
-      Hydraulics.boot(context)
-
-      assert {:boiler_filling, _} = :sys.get_state(name(context, Hydraulics))
-
-      # 0s activate the relay not 1s here
-      assert_receive({:write_gpio, :refill_solenoid, 0})
-      assert_receive({:write_gpio, :pump, 0})
-
-      Measurement.Store.put(context, :boiler_fill_status, :full)
+    test "if there is no fault we are ready to go", %{context: context} do
+      {:ok, _} =
+        Hydraulics.start_link(%{
+          context: context
+        })
 
       assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
-
-      assert_receive({:write_gpio, :refill_solenoid, 1})
-      assert_receive({:write_gpio, :pump, 1})
     end
   end
 
@@ -116,8 +103,11 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
   end
 
   defp boot(%{context: context} = info) do
-    Measurement.Store.put(context, :boiler_fill_status, :full)
-    Hydraulics.boot(context)
+    {:ok, _} =
+      Hydraulics.start_link(%{
+        context: context
+      })
+
     assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     info
   end

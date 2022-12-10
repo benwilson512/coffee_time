@@ -9,7 +9,6 @@ defmodule CoffeeTimeFirmware.Barista do
 
   require Logger
   alias CoffeeTimeFirmware.PubSub
-  alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Hydraulics
   alias CoffeeTimeFirmware.Util
   # alias CoffeeTimeFirmware.PubSub
@@ -29,12 +28,6 @@ defmodule CoffeeTimeFirmware.Barista do
     )
   end
 
-  def boot(context) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
-  end
-
   @spec save_program(any, CoffeeTimeFirmware.Barista.Program.t()) :: :ok | {:error, [String.t()]}
   def save_program(context, %__MODULE__.Program{name: name} = program) do
     case __MODULE__.Program.validate(program) do
@@ -49,6 +42,17 @@ defmodule CoffeeTimeFirmware.Barista do
 
   def get_program(context, name) do
     CubDB.get(name(context, :db), {:program, name})
+  end
+
+  def list_programs(context) do
+    # the min key max key stuff is a bit weird, but this is basically an artifact of
+    # erlang term ordering. CubDB does everything via range queries, and
+    # `1` is less than all atoms, and tuples are greater than all atoms. So if you want all keys that
+    # are {:program, *} you just use 1 and {} to be less than and greater than all atoms respectively.
+    context
+    |> name(:db)
+    |> CubDB.select(min_key: {:program, 1}, max_key: {:program, {}})
+    |> Enum.to_list()
   end
 
   @doc """
@@ -91,15 +95,10 @@ defmodule CoffeeTimeFirmware.Barista do
     [{db, _}] = Registry.lookup(context.registry, :db)
     state = %__MODULE__{context: context, db: db}
 
-    {:ok, :idle, state}
-  end
-
-  ## Idle
-
-  def handle_event({:call, from}, :boot, :idle, data) do
-    Boiler.TempControl.boot(data.context)
-    Hydraulics.boot(data.context)
-    {:next_state, :ready, data, {:reply, from, :done}}
+    # This module doesn't need an `:idle` state since it doesn't directly control anything. If you ask
+    # the barista process to try to run a program while the hydraulics or temp control is idle due to
+    # a fault it will simply crash. No need to manage it in a fancy way.
+    {:ok, :ready, state}
   end
 
   ## Ready

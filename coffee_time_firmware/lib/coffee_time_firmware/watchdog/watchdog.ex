@@ -14,7 +14,6 @@ defmodule CoffeeTimeFirmware.Watchdog do
   defstruct [
     :context,
     :fault,
-    :fault_file_path,
     deadline: %{},
     healthcheck: %{},
     threshold: %{},
@@ -51,6 +50,12 @@ defmodule CoffeeTimeFirmware.Watchdog do
     |> GenServer.call(:get_fault)
   end
 
+  def fault!(context, reason) do
+    context
+    |> name(__MODULE__)
+    |> GenServer.cast({:put_fault, reason})
+  end
+
   def start_link(%{context: context} = params) do
     GenServer.start_link(__MODULE__, params,
       name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
@@ -78,6 +83,12 @@ defmodule CoffeeTimeFirmware.Watchdog do
         state
       end
 
+    if state.fault do
+      CoffeeTimeFirmware.PubSub.broadcast(context, :watchdog, :fault_state)
+    else
+      CoffeeTimeFirmware.PubSub.broadcast(context, :watchdog, :ready)
+    end
+
     {:ok, state}
   end
 
@@ -96,8 +107,12 @@ defmodule CoffeeTimeFirmware.Watchdog do
   end
 
   def handle_call(:clear_fault, _from, state) do
-    File.rm!(state.fault_file_path)
+    File.rm!(fault_file_path(state.context))
     {:reply, :cleared, state, {:continue, :restart_self}}
+  end
+
+  def handle_cast({:put_fault, reason}, state) do
+    {:stop, :fault, set_fault(state, reason)}
   end
 
   def handle_continue(:restart_self, state) do
@@ -191,7 +206,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
   defp cancel_timer(state, type, key) do
     if timer = state.timers[{type, key}] do
-      Process.cancel_timer(timer)
+      Util.cancel_timer(timer)
     end
 
     put_in(state.timers[{type, key}], nil)
@@ -203,7 +218,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
       occurred_at: DateTime.utc_now()
     }
 
-    File.write!(state.fault_file_path, Jason.encode!(fault))
+    File.write!(fault_file_path(state.context), Jason.encode!(fault))
 
     if state.reboot_on_fault do
       :init.stop()
@@ -223,7 +238,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   end
 
   def populate_initial_fault_state(state) do
-    case File.read(state.fault_file_path) do
+    case File.read(fault_file_path(state.context)) do
       {:ok, ""} ->
         state
 
@@ -240,5 +255,9 @@ defmodule CoffeeTimeFirmware.Watchdog do
       _ ->
         state
     end
+  end
+
+  def fault_file_path(%{data_dir: dir}) do
+    Path.join(dir, "fault.json")
   end
 end

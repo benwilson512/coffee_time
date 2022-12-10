@@ -10,6 +10,8 @@ Application.start(:nerves_bootstrap)
 
 config :coffee_time_firmware, target: Mix.target(), run: true
 
+config :logger, format: "$time $metadata[$level] $message\n"
+
 # Customize non-Elixir parts of the firmware. See
 # https://hexdocs.pm/nerves/advanced-configuration.html for details.
 

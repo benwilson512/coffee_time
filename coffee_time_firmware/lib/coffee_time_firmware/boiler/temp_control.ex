@@ -16,13 +16,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Util
 
-  defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
-
-  def boot(context) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
-  end
+  defstruct target_temperature: 0, context: nil, target_duty_cycle: 0
 
   def set_target_temp(context, temp) do
     context
@@ -37,26 +31,32 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   def init(context) do
-    data = %__MODULE__{context: context}
-    {:ok, :idle, data}
-  end
+    stored_temp = CubDB.get(name(context, :db), :target_temp)
 
-  def handle_event({:call, from}, :boot, :idle, data) do
+    data = %__MODULE__{
+      context: context,
+      target_temperature: stored_temp || 0,
+      target_duty_cycle: 0
+    }
+
+    set_duty_cycle!(data)
+
+    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_temp`
+    # state if we are getting good readings from the boiler temp probe
+
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
     Measurement.Store.subscribe(data.context, :boiler_temp)
 
-    next_state =
-      case Measurement.Store.fetch!(data.context, :boiler_fill_status) do
-        :full ->
-          :hold_temp
+    cond do
+      CoffeeTimeFirmware.Watchdog.get_fault(context) ->
+        {:ok, :idle, data}
 
-        :low ->
-          # This process does not enact boiler fill. Rather it relies on the water
-          # flow logic to refill things.
-          :awaiting_boiler_fill
-      end
+      Measurement.Store.get(data.context, :boiler_fill_status) != :full ->
+        {:ok, :awaiting_boiler_fill, data}
 
-    {:next_state, next_state, data, {:reply, from, :ok}}
+      true ->
+        {:ok, :hold_temp, data}
+    end
   end
 
   ## General Commands
@@ -64,6 +64,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
     {response, data} =
       if temp < 128 do
+        CubDB.put(name(data.context, :db), :target_temp, temp)
         {:ok, %{data | target_temperature: temp}}
       else
         {{:error, :unsafe_temp}, data}
@@ -72,18 +73,26 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:keep_state, data, [{:reply, from, response}]}
   end
 
+  ## Idle
+  ####################
+
+  # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
+  def handle_event(:info, _, :idle, _data) do
+    :keep_state_and_data
+  end
+
   ## Boiler Fill
   ######################
 
   def handle_event(:enter, old_state, :awaiting_boiler_fill, data) do
     Util.log_state_change(__MODULE__, old_state, :awaiting_boiler_fill)
-    Boiler.DutyCycle.set(data.context, 0)
-    :keep_state_and_data
+    data = %{data | target_duty_cycle: 0}
+    set_duty_cycle!(data)
+
+    {:keep_state, %{data | target_duty_cycle: 0}}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
-    # IO.puts("received #{status}")
-
     case status do
       :full ->
         {:next_state, :hold_temp, data}
@@ -93,7 +102,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     end
   end
 
-  def handle_event(:info, {:broadcast, _, _}, :boot_fill, _) do
+  def handle_event(:info, {:broadcast, _, _}, :awaiting_boiler_fill, _) do
     :keep_state_and_data
   end
 
@@ -113,8 +122,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
       end
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
-      Logger.info("Changing duty cycle: #{data.target_duty_cycle}")
-      Boiler.DutyCycle.set(data.context, data.target_duty_cycle)
+      set_duty_cycle!(data)
     end
 
     {:keep_state, data}
@@ -135,5 +143,10 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  defp set_duty_cycle!(%{target_duty_cycle: cycle, context: context}) do
+    Logger.info("Changing duty cycle: #{cycle}")
+    :ok = Boiler.DutyCycle.set(context, cycle)
   end
 end

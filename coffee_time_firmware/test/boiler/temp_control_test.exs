@@ -7,45 +7,47 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
   alias CoffeeTimeFirmware.Boiler.TempControl
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Measurement
+  alias CoffeeTimeFirmware.Watchdog
 
   @moduletag :measurement_store
-
-  setup %{context: context} do
-    {:ok, _} =
-      CoffeeTimeFirmware.Boiler.start_link(%{
-        context: context,
-        intervals: %{
-          Boiler.DutyCycle => %{write_interval: :infinity}
-        }
-      })
-
-    {:ok, %{context: context}}
-  end
-
-  test "initial state is sane", %{context: context} do
-    assert %{duty_cycle: 0} = :sys.get_state(name(context, Boiler.DutyCycle))
-    assert {:idle, _} = :sys.get_state(name(context, Boiler.TempControl))
-  end
+  @moduletag :watchdog
 
   describe "initial boot process" do
-    test "If the boiler is full we move straight to heating", %{
-      context: context
-    } do
+    @tag :capture_log
+    test "if there is a fault we are idle", %{context: context} do
+      PubSub.subscribe(context, :watchdog)
+
+      Watchdog.fault!(context, "test")
+
+      assert_receive({:broadcast, :watchdog, :fault_state}, 200)
+
+      boot(%{context: context})
+
+      assert {:idle, _} = :sys.get_state(name(context, TempControl))
+    end
+
+    test "If there is no fault and a full boiler we move straigh to heating",
+         %{
+           context: context
+         } = info do
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      TempControl.boot(context)
+
+      boot(info)
 
       assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
     end
 
-    test "If the boiler is low we refill it. Upon refill we are in boot warmup", %{
-      context: context
-    } do
+    test "If the boiler is low wait for it to be filled. Once it's full we heat",
+         %{
+           context: context
+         } = info do
       PubSub.subscribe(context, :boiler_duty_cycle)
 
       Measurement.Store.put(context, :boiler_fill_status, :low)
 
-      TempControl.boot(context)
-      TempControl.set_target_temp(context, 128)
+      boot(info)
+
+      :ok = TempControl.set_target_temp(context, 127)
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
@@ -55,14 +57,23 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       # full power to get to temp.
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
     end
+
+    test "If we don't yet know the status of the boiler we also wait for it to be filled",
+         %{context: context} = info do
+      boot(info)
+
+      TempControl.set_target_temp(context, 128)
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
+    end
   end
 
   describe "post boot boiler refill" do
+    setup :boot
+
     test "low boiler status while heating turns off the heater", %{context: context} do
       PubSub.subscribe(context, :boiler_duty_cycle)
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      :ok = TempControl.boot(context)
       :ok = TempControl.set_target_temp(context, 125)
 
       assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
@@ -76,6 +87,68 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       # in the future we probably want to run it for a few seconds to help deal with the new hot water
       # and then shut off until we get the full signal.
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
+
+      # then when it's full we're back to heat
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+      assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
+      # The duty cycle changes are only triggered when we get an update about the current temp
+      Measurement.Store.put(context, :boiler_temp, 120)
+      assert_receive({:broadcast, :boiler_duty_cycle, 10})
     end
+  end
+
+  @tag :capture_log
+  test "crashing resets to the correct state", %{context: context} do
+    PubSub.subscribe(context, :boiler_duty_cycle)
+    Measurement.Store.put(context, :boiler_fill_status, :full)
+
+    pid =
+      start_supervised!(
+        {CoffeeTimeFirmware.Boiler,
+         %{
+           context: context,
+           intervals: %{
+             Boiler.DutyCycle => %{write_interval: :infinity}
+           }
+         }}
+      )
+
+    # initial boot messages
+    assert_receive({:broadcast, :boiler_duty_cycle, 0})
+    assert_receive({:write_gpio, :duty_cycle, 0})
+
+    :ok = TempControl.set_target_temp(context, 125)
+
+    assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
+
+    # send a temp so we trigger heating
+    Measurement.Store.put(context, :boiler_temp, 120)
+    assert_receive({:broadcast, :boiler_duty_cycle, 10})
+    assert_receive({:write_gpio, :duty_cycle, 1})
+    refute_receive(_)
+
+    Process.monitor(pid)
+    Process.exit(pid, :kill)
+
+    assert_receive({:DOWN, _, :process, _, :killed})
+
+    # it should reboot all the children, which means we get the boot messages again
+    assert_receive({:broadcast, :boiler_duty_cycle, 0})
+    assert_receive({:write_gpio, :duty_cycle, 0})
+
+    # We're in the temp hold
+    assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
+  end
+
+  def boot(%{context: context}) do
+    {:ok, _} =
+      CoffeeTimeFirmware.Boiler.start_link(%{
+        context: context,
+        intervals: %{
+          Boiler.DutyCycle => %{write_interval: :infinity}
+        }
+      })
+
+    :ok
   end
 end

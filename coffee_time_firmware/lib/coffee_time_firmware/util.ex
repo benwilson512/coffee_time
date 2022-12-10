@@ -1,4 +1,6 @@
 defmodule CoffeeTimeFirmware.Util do
+  require Logger
+
   def send_after(dest, msg, time, opts \\ [])
 
   def send_after(_dest, _msg, :infinity, _) do

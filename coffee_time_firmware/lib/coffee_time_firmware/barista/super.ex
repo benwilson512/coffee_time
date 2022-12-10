@@ -21,14 +21,8 @@ defmodule CoffeeTimeFirmware.Barista.Super do
   end
 
   @impl true
-  def init(%{context: context} = params) do
-    cubdb_opts = [
-      name: CoffeeTimeFirmware.Application.name(context, :db),
-      data_dir: Path.join(context.data_dir, "barista")
-    ]
-
+  def init(params) do
     children = [
-      {CubDB, cubdb_opts},
       {CoffeeTimeFirmware.Barista, params}
     ]
 

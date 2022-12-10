@@ -14,8 +14,7 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
                Watchdog.start_link(%{
                  context: context,
                  config: %{
-                   reboot_on_fault: false,
-                   fault_file_path: Briefly.create!()
+                   reboot_on_fault: false
                  }
                })
 
@@ -23,17 +22,14 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
 
     test "fault file means initial fault", %{context: context} do
-      path = Briefly.create!()
-
       fault_info = %{message: "test fault", occurred_at: ~U[2022-01-01T00:00:00Z]}
-      File.write(path, Jason.encode!(fault_info))
+      File.write(Watchdog.fault_file_path(context), Jason.encode!(fault_info))
 
       assert {:ok, _} =
                Watchdog.start_link(%{
                  context: context,
                  config: %{
-                   reboot_on_fault: false,
-                   fault_file_path: path
+                   reboot_on_fault: false
                  }
                })
 
@@ -192,8 +188,6 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
   end
 
   defp setup_watchdog(%{context: context} = params) do
-    path = Briefly.create!()
-
     pid =
       start_supervised!(
         {Watchdog,
@@ -201,7 +195,6 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
            context: context,
            config: %{
              reboot_on_fault: false,
-             fault_file_path: path,
              healthcheck: params[:healthcheck] || %{},
              deadline: params[:deadline] || %{},
              threshold: params[:threshold] || %{}
@@ -211,6 +204,6 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
 
     Process.monitor(pid)
 
-    {:ok, %{watchdog_pid: pid, context: context, fault_file_path: path}}
+    {:ok, %{watchdog_pid: pid, context: context}}
   end
 end
