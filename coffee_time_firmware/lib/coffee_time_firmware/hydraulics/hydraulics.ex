@@ -49,12 +49,6 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     gpio_pins: %{}
   ]
 
-  def boot(context) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
-  end
-
   def halt(context) do
     context
     |> name(__MODULE__)

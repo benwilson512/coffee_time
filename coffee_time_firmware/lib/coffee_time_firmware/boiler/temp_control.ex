@@ -18,12 +18,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
 
   defstruct target_temperature: 110, context: nil, target_duty_cycle: 0
 
-  def boot(context) do
-    context
-    |> name(__MODULE__)
-    |> GenStateMachine.call(:boot)
-  end
-
   def set_target_temp(context, temp) do
     context
     |> name(__MODULE__)
@@ -38,25 +32,20 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
 
   def init(context) do
     data = %__MODULE__{context: context}
-    {:ok, :idle, data}
-  end
 
-  def handle_event({:call, from}, :boot, :idle, data) do
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
     Measurement.Store.subscribe(data.context, :boiler_temp)
 
-    next_state =
-      case Measurement.Store.fetch!(data.context, :boiler_fill_status) do
-        :full ->
-          :hold_temp
+    cond do
+      CoffeeTimeFirmware.Watchdog.get_fault(context) ->
+        {:ok, :idle, data}
 
-        :low ->
-          # This process does not enact boiler fill. Rather it relies on the water
-          # flow logic to refill things.
-          :awaiting_boiler_fill
-      end
+      Measurement.Store.get(data.context, :boiler_fill_status) != :full ->
+        {:ok, :awaiting_boiler_fill, data}
 
-    {:next_state, next_state, data, {:reply, from, :ok}}
+      true ->
+        {:ok, :hold_temp, data}
+    end
   end
 
   ## General Commands
@@ -72,6 +61,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:keep_state, data, [{:reply, from, response}]}
   end
 
+  ## Idle
+  ####################
+
+  # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
+  def handle_event(:info, _, :idle, _data) do
+    :keep_state_and_data
+  end
+
   ## Boiler Fill
   ######################
 
@@ -84,8 +81,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
-    # IO.puts("received #{status}")
-
     case status do
       :full ->
         {:next_state, :hold_temp, data}

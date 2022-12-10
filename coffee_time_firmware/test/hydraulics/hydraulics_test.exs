@@ -17,8 +17,6 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
     test "If there is a fault we go to the idle state", %{
       context: context
     } do
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
       PubSub.subscribe(context, :watchdog)
 
       Watchdog.fault!(context, "test")

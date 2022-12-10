@@ -52,6 +52,16 @@ defmodule CoffeeTimeFirmware.Measurement.Store do
     end
   end
 
+  def get(context, key) do
+    case take(context, [key]) do
+      %{^key => value} ->
+        value
+
+      _ ->
+        nil
+    end
+  end
+
   @spec take(CoffeeTimeFirmware.Context.t(), [known_measurement()]) :: %{
           known_measurement() => term
         }
