@@ -7,7 +7,7 @@ defmodule CoffeeTimeFirmware.Measurement.CpuTemp do
 
   alias CoffeeTimeFirmware.Util
 
-  defstruct [:context, target_interval: 200]
+  defstruct [:context, target_interval: 5000]
 
   def start_link(%{context: context}) do
     GenServer.start_link(__MODULE__, context,
