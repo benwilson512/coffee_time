@@ -31,12 +31,12 @@ defmodule Help do
       ]
     },
     %CoffeeTimeFirmware.Barista.Program{
-      name: :standard_espresso,
+      name: :double_espresso,
       steps: [
         {:solenoid, :grouphead, :open},
         {:wait, :timer, 4000},
         {:pump, :on},
-        {:wait, :timer, 30000},
+        {:wait, :timer, 50000},
         {:hydraulics, :halt}
       ]
     }
@@ -44,6 +44,10 @@ defmodule Help do
   def __reseed__() do
     context = context()
     Enum.each(@programs, &CoffeeTimeFirmware.Barista.save_program(context, &1))
+    [{db, _}] = Registry.lookup(context.registry, :db)
+    CubDB.put(db, {:control_panel, :button1}, {:program, :short_flush})
+    CubDB.put(db, {:control_panel, :button2}, {:program, :double_espresso})
+    CubDB.put(db, {:control_panel, :button4}, {:program, :long_flush})
   end
 
   def __restart__() do

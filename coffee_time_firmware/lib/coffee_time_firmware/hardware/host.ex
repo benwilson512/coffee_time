@@ -38,5 +38,10 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
     def read_gpio(_, gpio) do
       Circuits.GPIO.read(gpio)
     end
+
+    def set_interrupts(_, gpio, trigger) do
+      Circuits.GPIO.set_interrupts(gpio, trigger)
+      Circuits.GPIO.pin(gpio)
+    end
   end
 end

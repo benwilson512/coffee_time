@@ -20,12 +20,20 @@ defmodule CoffeeTimeFirmware.Application do
       data_dir: Path.join(context.data_dir, "coffeetime_db")
     ]
 
+    panel_config = %{
+      fault_blink_rate: 1000
+    }
+
     [
       {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
       {Registry, keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
       {CubDB, cubdb_opts},
       {CoffeeTimeFirmware.Watchdog,
        %{context: context, config: CoffeeTimeFirmware.Context.watchdog_config(target())}},
+      # The control panel goes pretty high in the list because we want it to be able to reliably
+      # display whatever is going on with the items below.
+      {CoffeeTimeFirmware.ControlPanel, %{context: context, config: panel_config}},
+      # {CoffeeTimeFirmware.ControlPanelDebugger, %{context: context}},
       {CoffeeTimeFirmware.Measurement, %{context: context}},
       {CoffeeTimeFirmware.Hydraulics, %{context: context}},
       {CoffeeTimeFirmware.Boiler, %{context: context}},
