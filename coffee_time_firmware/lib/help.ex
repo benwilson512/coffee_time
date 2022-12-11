@@ -43,8 +43,11 @@ defmodule Help do
   ]
   def __reseed__() do
     context = context()
-    Enum.each(@programs, &CoffeeTimeFirmware.Barista.save_program(context, &1))
     [{db, _}] = Registry.lookup(context.registry, :db)
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    CubDB.back_up(db, Path.join([context.data_dir, "coffee_time_db-#{now}"]))
+
+    Enum.each(@programs, &CoffeeTimeFirmware.Barista.save_program(context, &1))
     CubDB.put(db, {:control_panel, :button1}, {:program, :short_flush})
     CubDB.put(db, {:control_panel, :button2}, {:program, :double_espresso})
     CubDB.put(db, {:control_panel, :button4}, {:program, :long_flush})

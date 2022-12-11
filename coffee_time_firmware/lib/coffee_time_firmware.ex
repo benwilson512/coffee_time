@@ -28,6 +28,10 @@ defmodule CoffeeTimeFirmware do
     CoffeeTimeFirmware.Barista.run_program(context(), program)
   end
 
+  def halt() do
+    CoffeeTimeFirmware.Barista.halt(context())
+  end
+
   defp context() do
     CoffeeTimeFirmware.Context.new(:rpi3)
   end
