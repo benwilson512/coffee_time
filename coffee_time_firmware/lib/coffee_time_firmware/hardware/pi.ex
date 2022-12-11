@@ -33,7 +33,16 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
       Max31865.get_temp()
     end
 
-    # 1 wire file "/sys/bus/w1/devices/28-00044a381bff/temperature"
+    # TODO: some sort of mapping to support multiple 1 wire sensors
+    @one_wire_file "/sys/bus/w1/devices/28-00044a381bff/temperature"
+    def read_one_wire_temperature(_interface, _name) do
+      @one_wire_file
+      |> File.read!()
+      |> String.trim()
+      |> String.to_integer()
+      |> Kernel./(1000)
+    end
+
     @temperature_file "/sys/class/thermal/thermal_zone0/temp"
     def read_cpu_temperature(_) do
       @temperature_file

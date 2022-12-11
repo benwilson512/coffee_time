@@ -34,7 +34,12 @@ defmodule CoffeeTimeFirmware.Measurement do
       {__MODULE__.BoilerFillStatus, params},
       {__MODULE__.Max31865Server, [rtd_wires: 4, spi_device_cs_pin: 0]},
       {__MODULE__.BoilerTempProbe, params},
-      {__MODULE__.CpuTemp, params}
+      {__MODULE__.CpuTemp, params},
+      {__MODULE__.OneWireSensor,
+       Map.merge(params, %{
+         name: :ssr_temp,
+         read_interval: 5000
+       })}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

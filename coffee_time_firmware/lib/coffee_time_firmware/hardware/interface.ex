@@ -8,4 +8,6 @@ defprotocol CoffeeTimeFirmware.Hardware do
 
   def read_boiler_probe_temp(interface)
   def read_cpu_temperature(interface)
+
+  def read_one_wire_temperature(interface, name)
 end

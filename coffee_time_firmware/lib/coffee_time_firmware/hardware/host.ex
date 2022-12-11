@@ -26,6 +26,10 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
       35.0
     end
 
+    def read_one_wire_temperature(_, _) do
+      37.0
+    end
+
     def open_gpio(%{pin_layout: pin_layout}, key) do
       {number, io, opts} = Map.fetch!(pin_layout, key)
       Circuits.GPIO.open(number, io, opts)

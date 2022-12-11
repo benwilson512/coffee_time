@@ -24,6 +24,13 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
       end
     end
 
+    def read_one_wire_temperature(_, name) do
+      receive do
+        {:one_wire_temperature, ^name, val} ->
+          val
+      end
+    end
+
     def open_gpio(_, key) do
       {:ok, key}
     end
