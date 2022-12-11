@@ -91,6 +91,12 @@ defmodule CoffeeTimeFirmware.Barista do
     end
   end
 
+  def halt(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:halt)
+  end
+
   def init(%{context: context}) do
     [{db, _}] = Registry.lookup(context.registry, :db)
     state = %__MODULE__{context: context, db: db}
@@ -143,6 +149,13 @@ defmodule CoffeeTimeFirmware.Barista do
 
   def handle_event({:call, from}, {:run_program, _}, {:executing, _}, _data) do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
+  end
+
+  def handle_event({:call, from}, :halt, {:executing, _}, data) do
+    :ok = Hydraulics.halt(data.context)
+    for {_, timer} <- data.timers, do: Util.cancel_timer(timer)
+
+    {:next_state, :ready, %{data | timers: %{}}, {:reply, from, :ok}}
   end
 
   ## General

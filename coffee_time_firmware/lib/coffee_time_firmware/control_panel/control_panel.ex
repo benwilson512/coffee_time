@@ -98,10 +98,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   end
 
   def handle_event(:info, {:circuits_gpio, interrupt_ref, timestamp, 1}, :ready, data) do
-    Process.sleep(150)
-    gpio = data.gpio_pins[data.interrupts[interrupt_ref]]
-
-    if Circuits.GPIO.read(gpio) == 1 do
+    if press_confirmed?(interrupt_ref, data) do
       {:next_state, {:press, interrupt_ref, timestamp}, data}
     else
       :keep_state_and_data
@@ -119,7 +116,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
 
     with {:program, program} <- CubDB.get(data.db, {:control_panel, logical_button}),
          :ok <- Barista.run_program(data.context, program) do
-      {:next_state, {:watching, ref, timestamp}, data}
+      {:next_state, {:watching, %{ref: ref, timestamp: timestamp, program: program}}, data}
     else
       nil ->
         Logger.warn("""
@@ -144,23 +141,33 @@ defmodule CoffeeTimeFirmware.ControlPanel do
 
   ## Watching
   ###############
-  def handle_event(:enter, old_state, {:watching, _, _} = new_state, data) do
+  def handle_event(:enter, old_state, {:watching, _} = new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     data = monitor_barista(data)
     {:keep_state, data}
   end
 
-  def handle_event(:info, {:circuits_gpio, _ref, _timestamp, _}, {:watching, _, _}, _) do
+  def handle_event(:info, {:circuits_gpio, ref, _, 1}, {:watching, %{ref: ref}}, data) do
+    if press_confirmed?(ref, data) do
+      Barista.halt(data.context)
+      data = demonitor_barista(data)
+      {:next_state, :ready, data}
+    else
+      :keep_state_and_data
+    end
+  end
+
+  def handle_event(:info, {:circuits_gpio, _ref, _timestamp, _}, {:watching, _}, _) do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :barista, {:program_done, _}}, {:watching, _, _}, data) do
+  def handle_event(:info, {:broadcast, :barista, {:program_done, _}}, {:watching, _}, data) do
     data = demonitor_barista(data)
     {:next_state, :ready, data}
   end
 
-  def handle_event(:info, {:DOWN, ref, :process, _, _}, {:watching, _, _}, data) do
+  def handle_event(:info, {:DOWN, ref, :process, _, _}, {:watching, _}, data) do
     if ref == data.barista_monitor do
       {:next_state, :ready, %{data | barista_monitor: nil}}
     else
@@ -168,7 +175,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
     end
   end
 
-  def handle_event(:info, {:broadcast, :barista, _}, {:watching, _, _}, _) do
+  def handle_event(:info, {:broadcast, :barista, _}, {:watching, _}, _) do
     :keep_state_and_data
   end
 
@@ -210,5 +217,11 @@ defmodule CoffeeTimeFirmware.ControlPanel do
     Process.demonitor(ref, [:flush])
 
     %{data | barista_monitor: nil}
+  end
+
+  defp press_confirmed?(interrupt_ref, data) do
+    Process.sleep(100)
+    gpio = data.gpio_pins[data.interrupts[interrupt_ref]]
+    Hardware.read_gpio(data.context.hardware, gpio) == 1
   end
 end
