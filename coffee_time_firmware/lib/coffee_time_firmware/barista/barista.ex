@@ -110,8 +110,20 @@ defmodule CoffeeTimeFirmware.Barista do
   ## Ready
   ##################
 
+  def handle_event(:enter, old_state, :ready, data) do
+    Util.log_state_change(__MODULE__, old_state, :ready)
+
+    PubSub.unsubscribe(data.context, :flow_pulse)
+
+    :keep_state_and_data
+  end
+
   def handle_event({:call, from}, {:run_program, program}, :ready, data) do
     {:next_state, {:executing, program}, data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, {:broadcast, _, _}, :ready, _data) do
+    :keep_state_and_data
   end
 
   ## Executing
@@ -120,29 +132,31 @@ defmodule CoffeeTimeFirmware.Barista do
   def handle_event(:enter, old_state, {:executing, program}, %{context: context} = data) do
     Util.log_state_change(__MODULE__, old_state, :executing)
 
-    data = %{data | current_program: program, steps: program.steps}
+    data = %{data | current_program: program, steps: [{:resume, :timer, :start} | program.steps]}
 
-    PubSub.broadcast(context, :barista, {:program_start, program})
     link!(context, Hydraulics)
 
-    send(self(), {:advance_program, nil})
+    PubSub.broadcast(context, :barista, {:program_start, program})
+    PubSub.subscribe(context, :flow_pulse)
+    send(self(), {:advance_program, :start})
 
     {:keep_state, data}
   end
 
-  def handle_event(:info, {:advance_program, timer}, {:executing, program}, data) do
-    %{context: context} = data
+  def handle_event(:info, msg, {:executing, program}, data) do
+    Logger.debug("Received: #{inspect(msg)} #{inspect(data.steps)}")
 
-    # Clear the timer if we were given one
-    data = Map.update!(data, :timers, &Map.delete(&1, timer))
+    case {data.steps, msg} do
+      {[{:resume, :timer, time} | steps], {:advance_program, time}} ->
+        handle_resume(program, %{data | steps: steps})
 
-    case advance_program(data) do
-      %{steps: []} = data ->
-        unlink!(context, Hydraulics)
-        PubSub.broadcast(context, :barista, {:program_done, program})
-        {:next_state, :ready, %{data | current_program: nil}}
+      {[{:resume, :flow_pulse, 1} | steps], {:broadcast, :flow_pulse, {1, _time}}} ->
+        handle_resume(program, %{data | steps: steps})
 
-      data ->
+      {[{:resume, :flow_pulse, n} | steps], {:broadcast, :flow_pulse, {1, _time}}} ->
+        {:keep_state, %{data | steps: [{:resume, :flow_pulse, n - 1} | steps]}}
+
+      _ ->
         {:keep_state, data}
     end
   end
@@ -170,6 +184,19 @@ defmodule CoffeeTimeFirmware.Barista do
   ## Program Execution Loop
   #########################
 
+  defp handle_resume(program, %{context: context} = data) do
+    case advance_program(data) do
+      %{steps: []} = data ->
+        unlink!(context, Hydraulics)
+        PubSub.broadcast(context, :barista, {:program_done, program})
+
+        {:next_state, :ready, %{data | current_program: nil}}
+
+      data ->
+        {:keep_state, data}
+    end
+  end
+
   def advance_program(%{steps: []} = data) do
     data
   end
@@ -196,14 +223,21 @@ defmodule CoffeeTimeFirmware.Barista do
         :ok = Hydraulics.halt(context)
         advance_program(%{data | steps: rest})
 
-      {:wait, :timer, time} = step ->
-        timer = Util.send_after(self(), {:advance_program, step}, time)
+      {:wait, :flow_pulse, val} ->
+        steps = [{:resume, :flow_pulse, val} | rest]
+
+        %{data | steps: steps}
+
+      {:wait, :timer, time} ->
+        timer = Util.send_after(self(), {:advance_program, time}, time)
+
+        steps = [{:resume, :timer, time} | rest]
 
         data
         |> Map.update!(:timers, fn timers ->
           Map.put(timers, step, timer)
         end)
-        |> Map.replace!(:steps, rest)
+        |> Map.replace!(:steps, steps)
     end
   end
 

@@ -8,7 +8,7 @@ defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
   use GenServer
   require Logger
 
-  defstruct [:context, :gpio, counter: 0]
+  defstruct [:context, :gpio, counters: %{}]
 
   def reset(context) do
     context
@@ -36,10 +36,10 @@ defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
   end
 
   def handle_call(:reset, _from, state) do
-    {:reply, state.counter, %{state | counter: 0}}
+    {:reply, state.counters, %{state | counters: %{}}}
   end
 
-  def handle_info({:circuits_gpio, _, _, _}, state) do
-    {:noreply, %{state | counter: state.counter + 1}}
+  def handle_info({:circuits_gpio, _, _, val}, state) do
+    {:noreply, %{state | counters: Map.update(state.counters, val, 1, &(&1 + 1))}}
   end
 end

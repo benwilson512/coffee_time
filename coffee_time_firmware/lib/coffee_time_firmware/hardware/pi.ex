@@ -13,7 +13,7 @@ defmodule CoffeeTimeFirmware.Hardware.Pi do
     {:stub, 2} => {:led2, :output, initial_value: 0},
     {:stub, 3} => {:led3, :output, initial_value: 0},
     {:stub, 4} => {:led4, :output, initial_value: 0},
-    17 => {:flow, :input, pull_mode: :pulldown},
+    17 => {:flow_meter, :input, pull_mode: :pulldown},
     16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
     18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
     20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},

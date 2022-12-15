@@ -39,7 +39,8 @@ defmodule CoffeeTimeFirmware.Measurement do
        Map.merge(params, %{
          name: :ssr_temp,
          read_interval: 5000
-       })}
+       })},
+      {CoffeeTimeFirmware.Measurement.FlowMeter, params}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
