@@ -12,7 +12,7 @@ defmodule CoffeeTimeFirmware.Barista.Program do
   defstruct [
     :name,
     steps: [],
-    remaining_steps: []
+    state: %{}
   ]
 
   def validate(program) do
@@ -37,6 +37,9 @@ defmodule CoffeeTimeFirmware.Barista.Program do
         errors
 
       {:wait, :timer, _}, errors ->
+        errors
+
+      {:wait, :flow_pulse, _}, errors ->
         errors
 
       step, errors ->

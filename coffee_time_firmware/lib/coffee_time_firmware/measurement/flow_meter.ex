@@ -1,20 +1,15 @@
-defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
+defmodule CoffeeTimeFirmware.Measurement.FlowMeter do
   @moduledoc """
   Applies a duty cycle to the boiler.
 
   There's some interesting nuance here when trying to rapidly switch an AC
   """
+  alias CoffeeTimeFirmware.PubSub
 
   use GenServer
   require Logger
 
-  defstruct [:context, :gpio, counters: %{}]
-
-  def reset(context) do
-    context
-    |> CoffeeTimeFirmware.Application.name(__MODULE__)
-    |> GenServer.call(:reset)
-  end
+  defstruct [:context, :gpio]
 
   def start_link(%{context: context} = params) do
     GenServer.start_link(__MODULE__, params,
@@ -23,7 +18,7 @@ defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
   end
 
   def init(%{context: context}) do
-    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :flow)
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :flow_meter)
 
     CoffeeTimeFirmware.Hardware.set_interrupts(context.hardware, gpio, :rising)
 
@@ -35,11 +30,8 @@ defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
     {:ok, state}
   end
 
-  def handle_call(:reset, _from, state) do
-    {:reply, state.counters, %{state | counters: %{}}}
-  end
-
-  def handle_info({:circuits_gpio, _, _, val}, state) do
-    {:noreply, %{state | counters: Map.update(state.counters, val, 1, &(&1 + 1))}}
+  def handle_info({:circuits_gpio, _, time, val}, state) do
+    PubSub.broadcast(state.context, :flow_pulse, {val, time})
+    {:noreply, state}
   end
 end
