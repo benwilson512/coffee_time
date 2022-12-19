@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "uplot": "^1.6.23"
+  }
+}

@@ -30,8 +30,6 @@ else
   import_config "target.exs"
 end
 
-if Mix.env() != :test do
-  import_config "../../coffee_time_ui/config/config.exs"
-end
+import_config("../../coffee_time_ui/config/config.exs")
 
 import_config "./#{Mix.env()}.exs"

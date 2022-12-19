@@ -43,7 +43,7 @@ defmodule CoffeeTimeFirmware.Context do
     pid
   end
 
-  def watchdog_config(_) do
+  def watchdog_config(:rpi3) do
     %{
       reboot_on_fault: true,
       deadline: %{
@@ -61,5 +61,9 @@ defmodule CoffeeTimeFirmware.Context do
         boiler_temp: 130
       }
     }
+  end
+
+  def watchdog_config(_) do
+    %{}
   end
 end
