@@ -19,7 +19,7 @@ defmodule CoffeeTimeUiWeb.Router do
 
     live "/", Status.Index, :index, as: :status
 
-    get "/", PageController, :home
+    # get "/", PageController, :home
   end
 
   # Other scopes may use custom stacks.

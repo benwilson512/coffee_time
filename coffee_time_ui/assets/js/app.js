@@ -24,9 +24,6 @@ import topbar from "../vendor/topbar"
 
 import * as Hooks from "./hooks"
 
-console.log('yo');
-console.log('hooks', Hooks)
-
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {hooks: Hooks, params: {_csrf_token: csrfToken}})
 
