@@ -64,6 +64,7 @@ config :vintage_net,
            %{
              key_mgmt: :wpa_psk,
              ssid: "MI5",
+             # oops this isn't my real wifi password anymore now that I've committed it to the world :D
              psk: "thisisonlyalphanumericcharacters"
            }
          ]
@@ -81,7 +82,7 @@ config :mdns_lite,
   # because otherwise any of the devices may respond to nerves.local leading to
   # unpredictable behavior.
 
-  hosts: [:hostname, "nerves"],
+  hosts: [:hostname, "astoria"],
   ttl: 120,
 
   # Advertise the following services over mDNS.

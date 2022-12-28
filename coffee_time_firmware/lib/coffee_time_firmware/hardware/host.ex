@@ -1,11 +1,21 @@
 defmodule CoffeeTimeFirmware.Hardware.Host do
+  require Logger
+
   @pin_layout %{
+    6 => {:button1, :input, pull_mode: :pulldown},
+    13 => {:button3, :input, pull_mode: :pulldown},
+    19 => {:button2, :input, pull_mode: :pulldown},
+    26 => {:button4, :input, pull_mode: :pulldown},
+    {:stub, 1} => {:led1, :output, initial_value: 0},
+    {:stub, 2} => {:led2, :output, initial_value: 0},
+    {:stub, 3} => {:led3, :output, initial_value: 0},
+    {:stub, 4} => {:led4, :output, initial_value: 0},
+    17 => {:flow_meter, :input, pull_mode: :pulldown},
     16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
     18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
     20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},
     21 => {:grouphead_solenoid, :output, initial_value: 1, pull_mode: :pullup},
-    22 => {:duty_cycle, :output, initial_value: 0},
-    26 => {:flow_meter, :input, initial_value: 0, pull_mode: :pulldown}
+    22 => {:duty_cycle, :output, initial_value: 0}
   }
   defstruct pin_layout:
               Map.new(@pin_layout, fn
@@ -31,8 +41,22 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
     end
 
     def open_gpio(%{pin_layout: pin_layout}, key) do
-      {number, io, opts} = Map.fetch!(pin_layout, key)
-      Circuits.GPIO.open(number, io, opts)
+      case Map.fetch!(pin_layout, key) do
+        {{:stub, _} = stub, :output, _} ->
+          {:ok, stub}
+
+        {number, io, opts} ->
+          Circuits.GPIO.open(number, io, opts)
+      end
+    end
+
+    def set_interrupts(_, gpio, trigger) do
+      Circuits.GPIO.set_interrupts(gpio, trigger)
+      Circuits.GPIO.pin(gpio)
+    end
+
+    def write_gpio(_, {:stub, n}, val) do
+      Logger.debug("write_gpio: #{n}, #{val}")
     end
 
     def write_gpio(_, gpio, val) do
@@ -41,11 +65,6 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
 
     def read_gpio(_, gpio) do
       Circuits.GPIO.read(gpio)
-    end
-
-    def set_interrupts(_, gpio, trigger) do
-      Circuits.GPIO.set_interrupts(gpio, trigger)
-      Circuits.GPIO.pin(gpio)
     end
   end
 end

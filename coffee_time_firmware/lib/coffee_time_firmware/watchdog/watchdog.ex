@@ -188,20 +188,18 @@ defmodule CoffeeTimeFirmware.Watchdog do
   end
 
   defp set_timer(state, type, key) do
-    time =
-      case state do
-        %{
-          ^type => %{^key => time}
-        } ->
-          time
+    case state do
+      %{
+        ^type => %{^key => time}
+      } ->
+        time
+        timer = Util.send_after(self(), {:timer_expired, {type, key}}, time)
 
-        _ ->
-          raise "No timer configuration found for #{type}, #{key}"
-      end
+        put_in(state.timers[{type, key}], timer)
 
-    timer = Util.send_after(self(), {:timer_expired, {type, key}}, time)
-
-    put_in(state.timers[{type, key}], timer)
+      _ ->
+        state
+    end
   end
 
   defp cancel_timer(state, type, key) do
