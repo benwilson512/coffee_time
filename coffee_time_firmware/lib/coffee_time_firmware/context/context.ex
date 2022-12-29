@@ -49,7 +49,14 @@ defmodule CoffeeTimeFirmware.Context do
       deadline: %{
         pump: :timer.seconds(60),
         grouphead_solenoid: :timer.seconds(60),
-        refill_solenoid: :timer.seconds(60)
+        # In normal operation the refill solenoid should only be on very briefly. Currently one of my
+        # biggest concerns is that some part of the boiler refill circuit fails and it tries to fill for
+        # too long. Most of the other hardware failures failing closed isn't all that much of a problem but
+        # the pump pushing 120C water out of the boiler OPV would be super dangerous.
+        #
+        # TODO: This does leave out the scenario where the boiler needs to be refilled on boot. Specific
+        # logic should be written to adjust the deadline in that case.
+        refill_solenoid: :timer.seconds(5)
       },
       healthcheck: %{
         cpu_temp: :timer.seconds(15),
