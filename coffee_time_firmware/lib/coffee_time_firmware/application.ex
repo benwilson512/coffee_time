@@ -28,6 +28,7 @@ defmodule CoffeeTimeFirmware.Application do
       {Registry, keys: :unique, name: context.registry, partitions: System.schedulers_online()},
       {Registry, keys: :duplicate, name: context.pubsub, partitions: System.schedulers_online()},
       {CubDB, cubdb_opts},
+      CoffeeTimeFirmware.Scheduler,
       {CoffeeTimeFirmware.Watchdog,
        %{context: context, config: CoffeeTimeFirmware.Context.watchdog_config(target())}},
       # The control panel goes pretty high in the list because we want it to be able to reliably

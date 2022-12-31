@@ -33,6 +33,8 @@ defmodule CoffeeTimeFirmware.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:quantum, "~> 3.5"},
+      {:nerves_time_zones, "~> 0.1.2"},
       {:cubdb, "~> 2.0"},
       {:jason, ">= 0.0.0"},
       {:briefly, ">= 0.0.0", only: :test},

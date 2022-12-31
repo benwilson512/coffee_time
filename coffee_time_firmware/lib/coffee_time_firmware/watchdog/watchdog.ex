@@ -192,7 +192,6 @@ defmodule CoffeeTimeFirmware.Watchdog do
       %{
         ^type => %{^key => time}
       } ->
-        time
         timer = Util.send_after(self(), {:timer_expired, {type, key}}, time)
 
         put_in(state.timers[{type, key}], timer)
