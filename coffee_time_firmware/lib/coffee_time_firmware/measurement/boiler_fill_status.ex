@@ -46,10 +46,10 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
 
   defp status_from_gpio(%{context: context, gpio: gpio}) do
     case CoffeeTimeFirmware.Hardware.read_gpio(context.hardware, gpio) do
-      1 ->
+      0 ->
         :full
 
-      0 ->
+      1 ->
         :low
     end
   end

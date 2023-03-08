@@ -58,7 +58,11 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     {:next_state, :sleep, data, {:reply, from, :ok}}
   end
 
-  def handle_event(_, _, :ready, _) do
+  def handle_event({:call, from}, :wake, :ready, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, _, :ready, _) do
     :keep_state_and_data
   end
 
@@ -86,11 +90,21 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     {:next_state, :ready, data, {:reply, from, :ok}}
   end
 
+  def handle_event({:call, from}, :sleep, :sleep, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  ## General
+  ##########
+
   def handle_event(:enter, old_state, new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
   end
+
+  ## Helpers
+  ################
 
   defp set_quantum_jobs(context) do
     import Crontab.CronExpression

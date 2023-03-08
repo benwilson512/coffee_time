@@ -34,9 +34,9 @@ defmodule Help do
       name: :double_espresso,
       steps: [
         {:solenoid, :grouphead, :open},
-        {:wait, :timer, 4000},
+        {:wait, :flow_pulse, 60},
         {:pump, :on},
-        {:wait, :timer, 50000},
+        {:wait, :flow_pulse, 101},
         {:hydraulics, :halt}
       ]
     }

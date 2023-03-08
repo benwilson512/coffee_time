@@ -6,11 +6,18 @@ import Config
 
 config :logger, backends: [RingLogger]
 
+config :tz, :data_dir, "/data"
+
 # Use shoehorn to start the main application. See the shoehorn
 # library documentation for more control in ordering how OTP
 # applications are started and handling failures.
 
-config :shoehorn, init: [:nerves_runtime, :nerves_pack]
+config :shoehorn, init: [:nerves_runtime, :nerves_pack, :power_control]
+
+config :power_control,
+  cpu_governor: :powersave,
+  disable_leds: true,
+  disable_hdmi: true
 
 # Erlinit can be configured without a rootfs_overlay. See
 # https://github.com/nerves-project/erlinit/ for more information on
@@ -63,9 +70,9 @@ config :vintage_net,
          networks: [
            %{
              key_mgmt: :wpa_psk,
-             ssid: "MI5",
+             ssid: System.fetch_env!("WIFI_SSID"),
              # oops this isn't my real wifi password anymore now that I've committed it to the world :D
-             psk: "thisisonlyalphanumericcharacters"
+             psk: System.fetch_env!("WIFI_PASSWORD")
            }
          ]
        },
