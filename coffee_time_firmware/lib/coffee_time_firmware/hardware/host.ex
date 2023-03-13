@@ -12,7 +12,7 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
     {:stub, 4} => {:led4, :output, initial_value: 0},
     17 => {:flow_meter, :input, pull_mode: :pulldown},
     16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
-    18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
+    18 => {:boiler_fill_probe, :input, initial_value: 0, pull_mode: :pulldown},
     20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},
     21 => {:grouphead_solenoid, :output, initial_value: 1, pull_mode: :pullup},
     22 => {:duty_cycle, :output, initial_value: 0}

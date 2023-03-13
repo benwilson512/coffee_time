@@ -9,7 +9,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Util
 
-  defstruct [:context, :gpio, :idle_read_interval, :refill_read_interval, status: :unknown]
+  defstruct [:context, :probe_gpio, :idle_read_interval, :refill_read_interval, status: :unknown]
 
   def start_link(%{context: context} = params) do
     GenServer.start_link(__MODULE__, params,
@@ -18,11 +18,11 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => intervals}}) do
-    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :boiler_fill_status)
+    {:ok, gpio} = CoffeeTimeFirmware.Hardware.open_gpio(context.hardware, :boiler_fill_probe)
 
     state = %__MODULE__{
       context: context,
-      gpio: gpio,
+      probe_gpio: gpio,
       idle_read_interval: intervals.idle_read_interval,
       refill_read_interval: intervals.refill_read_interval
     }
@@ -44,7 +44,7 @@ defmodule CoffeeTimeFirmware.Measurement.BoilerFillStatus do
     {:noreply, %{state | status: status}}
   end
 
-  defp status_from_gpio(%{context: context, gpio: gpio}) do
+  defp status_from_gpio(%__MODULE__{context: context, probe_gpio: gpio}) do
     case CoffeeTimeFirmware.Hardware.read_gpio(context.hardware, gpio) do
       0 ->
         :full

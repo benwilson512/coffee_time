@@ -56,12 +56,12 @@ defmodule CoffeeTimeFirmware.Context do
         #
         # TODO: This does leave out the scenario where the boiler needs to be refilled on boot. Specific
         # logic should be written to adjust the deadline in that case.
-        refill_solenoid: :timer.seconds(5)
+        refill_solenoid: :timer.seconds(60)
       },
       healthcheck: %{
         cpu_temp: :timer.seconds(15),
         boiler_temp: :timer.seconds(5),
-        boiler_fill_status: :timer.seconds(5)
+        boiler_fill_status: :timer.seconds(120)
       },
       threshold: %{
         cpu_temp: 70,
