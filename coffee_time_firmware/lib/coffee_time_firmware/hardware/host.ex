@@ -63,6 +63,14 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
       Circuits.GPIO.write(gpio, val)
     end
 
+    def set_pull_mode(_interface, {:stub, n}, mode) do
+      Logger.debug("changing pull mode: #{n}, #{mode}")
+    end
+
+    def set_pull_mode(_interface, gpio, mode) do
+      Circuits.GPIO.set_pull_mode(gpio, mode)
+    end
+
     def read_gpio(_, gpio) do
       Circuits.GPIO.read(gpio)
     end

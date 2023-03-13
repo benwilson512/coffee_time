@@ -48,6 +48,10 @@ defmodule CoffeeTimeFirmware.Hardware.Mock do
       send(mock.pid, {:write_gpio, gpio, val})
     end
 
+    def set_pull_mode(mock, gpio, mode) do
+      send(mock.pid, {:pull_mode, gpio, mode})
+    end
+
     def read_gpio(_, gpio) do
       receive do
         {:gpio_val, ^gpio, val} ->
