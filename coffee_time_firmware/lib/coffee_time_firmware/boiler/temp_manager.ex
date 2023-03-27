@@ -13,7 +13,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
   alias CoffeeTimeFirmware.Util
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil, ready_temp: 121, sleep_temp: 105
+  defstruct context: nil, ready_temp: 121, sleep_temp: 0
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
