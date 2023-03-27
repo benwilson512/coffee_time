@@ -154,19 +154,6 @@ defmodule CoffeeTimeFirmware.Watchdog do
     end
   end
 
-  def handle_info({:broadcast, :cpu_temp, val}, state) do
-    if val > 130 do
-      {:stop, :fault, set_fault(state, "boiler over temp: #{val}")}
-    else
-      state =
-        state
-        |> cancel_timer(:healthcheck, :cpu_temp)
-        |> set_timer(:healthcheck, :cpu_temp)
-
-      {:noreply, state}
-    end
-  end
-
   @state_toggles [
     pump: [on: :off],
     grouphead_solenoid: [open: :close],
