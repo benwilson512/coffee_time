@@ -12,7 +12,7 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
     {:stub, 4} => {:led4, :output, initial_value: 0},
     17 => {:flow_meter, :input, pull_mode: :pulldown},
     16 => {:pump, :output, initial_value: 1, pull_mode: :pullup},
-    18 => {:boiler_fill_status, :input, initial_value: 0, pull_mode: :pulldown},
+    18 => {:boiler_fill_probe, :input, initial_value: 0, pull_mode: :pulldown},
     20 => {:refill_solenoid, :output, initial_value: 1, pull_mode: :pullup},
     21 => {:grouphead_solenoid, :output, initial_value: 1, pull_mode: :pullup},
     22 => {:duty_cycle, :output, initial_value: 0}
@@ -61,6 +61,14 @@ defmodule CoffeeTimeFirmware.Hardware.Host do
 
     def write_gpio(_, gpio, val) do
       Circuits.GPIO.write(gpio, val)
+    end
+
+    def set_pull_mode(_interface, {:stub, n}, mode) do
+      Logger.debug("changing pull mode: #{n}, #{mode}")
+    end
+
+    def set_pull_mode(_interface, gpio, mode) do
+      Circuits.GPIO.set_pull_mode(gpio, mode)
     end
 
     def read_gpio(_, gpio) do

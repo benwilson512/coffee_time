@@ -51,7 +51,7 @@ defmodule CoffeeTimeFirmware.MeasurementTest do
       fill_pid = lookup_pid(context, Measurement.BoilerFillStatus)
 
       send(fill_pid, :tick)
-      Hardware.Mock.set_gpio(fill_pid, :boiler_fill_status, 0)
+      Hardware.Mock.set_gpio(fill_pid, :boiler_fill_probe, 0)
 
       assert_receive({:broadcast, :boiler_fill_status, :full})
 

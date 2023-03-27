@@ -61,7 +61,7 @@ defmodule CoffeeTimeFirmware.Context do
       healthcheck: %{
         cpu_temp: :timer.seconds(15),
         boiler_temp: :timer.seconds(5),
-        boiler_fill_status: :timer.seconds(5)
+        boiler_fill_status: :timer.seconds(10)
       },
       threshold: %{
         cpu_temp: 70,

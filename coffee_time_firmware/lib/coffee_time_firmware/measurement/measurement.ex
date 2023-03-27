@@ -25,7 +25,10 @@ defmodule CoffeeTimeFirmware.Measurement do
     params =
       Map.put_new(params, :intervals, %{
         __MODULE__.BoilerTempProbe => %{read_interval: 500},
-        __MODULE__.BoilerFillStatus => %{idle_read_interval: 1000, refill_read_interval: 500},
+        __MODULE__.BoilerFillStatus => %{
+          idle_read_interval: :timer.seconds(5),
+          refill_read_interval: :timer.seconds(1)
+        },
         __MODULE__.CpuTemp => %{read_interval: 2000}
       })
 
