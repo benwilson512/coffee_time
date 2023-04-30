@@ -3,10 +3,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
   Manages changing the desired temp
   """
 
+  # I'm not 100% convinced this needs to be a dedicated process vs the temp control and duty
+  # cycle pids, but I'll sort that out at some point.
+
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
   require Logger
 
   import CoffeeTimeFirmware.Application, only: [name: 2]
+  import CompareChain
 
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Boiler
@@ -33,6 +37,10 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     |> GenStateMachine.call(:sleep)
   end
 
+  def lookup_config(context) do
+    CubDB.get(name(context, :db), __MODULE__)
+  end
+
   def init(context) do
     data = %__MODULE__{
       context: context
@@ -40,9 +48,32 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
 
     PubSub.subscribe(context, :barista)
 
-    set_quantum_jobs(context)
+    config = lookup_config(context)
+    apply_config(data, config)
+
+    set_quantum_jobs(context, config)
 
     {:ok, :ready, data}
+  end
+
+  defp apply_config(data, config) do
+    if sleeping_now?(config) do
+      {:ok, :sleep, data}
+    else
+      {:ok, :read, data}
+    end
+  end
+
+  defp sleeping_now?(config) do
+    now = DateTime.utc_now() |> DateTime.to_time()
+
+    case config[:power_saver_interval] do
+      {from = %Time{}, to = %Time{}} ->
+        compare?(now <= from or to <= now)
+
+      _ ->
+        false
+    end
   end
 
   ## Ready
@@ -106,25 +137,25 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
   ## Helpers
   ################
 
-  defp set_quantum_jobs(context) do
+  defp set_quantum_jobs(context, config) do
     import Crontab.CronExpression
 
-    # sleep job
-    CoffeeTimeFirmware.Scheduler.new_job()
-    |> Quantum.Job.set_timezone("America/New_York")
-    |> Quantum.Job.set_name(:sleep)
-    # 6pm ET
-    |> Quantum.Job.set_schedule(~e[0 18 * * *])
-    |> Quantum.Job.set_task(fn -> sleep(context) end)
-    |> CoffeeTimeFirmware.Scheduler.add_job()
+    case config[:power_saver_interval] do
+      {from = %Time{}, to = %Time{}} ->
+        set_job(:sleep, ~e[#{from.minute} #{from.hour} * * *], fn -> sleep(context) end)
+        set_job(:wake, ~e[#{to.minute} #{to.hour} * * *], fn -> sleep(context) end)
 
-    # wake job
+      _ ->
+        :ok
+    end
+  end
+
+  defp set_job(name, cron_spec, fun) do
     CoffeeTimeFirmware.Scheduler.new_job()
     |> Quantum.Job.set_timezone("America/New_York")
-    |> Quantum.Job.set_name(:wake)
-    # at 5:30 am ET
-    |> Quantum.Job.set_schedule(~e[30 5 * * *])
-    |> Quantum.Job.set_task(fn -> wake(context) end)
+    |> Quantum.Job.set_name(name)
+    |> Quantum.Job.set_schedule(cron_spec)
+    |> Quantum.Job.set_task(fun)
     |> CoffeeTimeFirmware.Scheduler.add_job()
   end
 end

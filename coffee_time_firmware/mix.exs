@@ -34,6 +34,7 @@ defmodule CoffeeTimeFirmware.MixProject do
   defp deps do
     [
       {:quantum, "~> 3.5"},
+      {:compare_chain, ">= 0.0.0"},
       {:nerves_time_zones, "~> 0.1.2"},
       {:cubdb, "~> 2.0"},
       {:jason, ">= 0.0.0"},
