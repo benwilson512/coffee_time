@@ -49,27 +49,28 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     PubSub.subscribe(context, :barista)
 
     config = lookup_config(context)
-    apply_config(data, config)
+    now = DateTime.utc_now()
+    state = init_state(data, config, now)
 
     set_quantum_jobs(context, config)
 
-    {:ok, :ready, data}
+    {:ok, state, data}
   end
 
-  defp apply_config(data, config) do
-    if sleeping_now?(config) do
+  defp init_state(data, config, now) do
+    if sleep_time?(config, now) do
       {:ok, :sleep, data}
     else
-      {:ok, :read, data}
+      {:ok, :ready, data}
     end
   end
 
-  defp sleeping_now?(config) do
-    now = DateTime.utc_now() |> DateTime.to_time()
+  def sleep_time?(config, now) do
+    current_time = DateTime.to_time(now)
 
     case config[:power_saver_interval] do
       {from = %Time{}, to = %Time{}} ->
-        compare?(now <= from or to <= now)
+        compare?(current_time >= from or current_time <= to)
 
       _ ->
         false
@@ -143,7 +144,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     case config[:power_saver_interval] do
       {from = %Time{}, to = %Time{}} ->
         set_job(:sleep, ~e[#{from.minute} #{from.hour} * * *], fn -> sleep(context) end)
-        set_job(:wake, ~e[#{to.minute} #{to.hour} * * *], fn -> sleep(context) end)
+        set_job(:wake, ~e[#{to.minute} #{to.hour} * * *], fn -> wake(context) end)
 
       _ ->
         :ok
