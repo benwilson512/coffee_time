@@ -90,17 +90,21 @@ defmodule CoffeeTimeFirmware.Hydraulics do
       gpio_pins: setup_gpio_pins(context.hardware)
     }
 
-    Measurement.Store.subscribe(data.context, :boiler_fill_status)
+    Measurement.Store.subscribe(context, :boiler_fill_status)
+    fill_status = Measurement.Store.get(context, :boiler_fill_status)
 
     cond do
       CoffeeTimeFirmware.Watchdog.get_fault(context) ->
         {:ok, :idle, data}
 
-      Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
+      fill_status == :full ->
         {:ok, :ready, data}
 
-      true ->
+      fill_status == :low ->
         {:ok, :initial_fill, data}
+
+      true ->
+        {:ok, :awaiting_initial_fill, data}
     end
   end
 
@@ -110,6 +114,17 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
   def handle_event(:info, _, :idle, _data) do
     :keep_state_and_data
+  end
+
+  ## Awaiting Initial Fill
+  ########################
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :full}, :awaiting_initial_fill, data) do
+    {:next_state, :ready, data}
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :awaiting_initial_fill, data) do
+    {:next_state, :initial_fill, data}
   end
 
   ## Initial Fill

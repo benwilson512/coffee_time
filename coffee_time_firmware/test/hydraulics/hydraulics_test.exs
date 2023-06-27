@@ -31,16 +31,15 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
     test "if there is no fault we are ready to do initial fill", %{context: context} do
       {:ok, _} = Hydraulics.start_link(%{context: context})
 
-      assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
+      assert {:awaiting_initial_fill, _} = :sys.get_state(name(context, Hydraulics))
     end
   end
 
   describe "initial fill" do
-    test "If there is no known boiler state we enter initial fill", %{context: context} do
+    test "If there is no known boiler state we await fill status", %{context: context} do
       {:ok, _} = Hydraulics.start_link(%{context: context})
-      assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
-      assert_receive {:write_gpio, :refill_solenoid, 0}
-      assert_receive {:write_gpio, :pump, 0}
+      assert {:awaiting_initial_fill, _} = :sys.get_state(name(context, Hydraulics))
+      refute_receive _
     end
 
     test "If there is full boiler state we enter ready", %{context: context} do
@@ -79,6 +78,7 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
     @tag watchdog: %{deadline: %{refill_solenoid: 1}}
     @tag :capture_log
     test "The hydraulics system is allowed to take a while to fill up", %{context: context} do
+      Measurement.Store.put(context, :boiler_fill_status, :low)
       PubSub.subscribe(context, :watchdog)
       {:ok, _} = Hydraulics.start_link(%{context: context})
       assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
