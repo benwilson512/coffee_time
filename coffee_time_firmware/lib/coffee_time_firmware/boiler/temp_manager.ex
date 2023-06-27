@@ -50,14 +50,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
 
     config = lookup_config(context)
     now = DateTime.utc_now()
-    state = init_state(data, config, now)
+    state = init_state(config, now)
 
     set_quantum_jobs(context, config)
 
     {:ok, state, data}
   end
 
-  defp init_state(data, config, now) do
+  defp init_state(config, now) do
     if sleep_time?(config, now) do
       :sleep
     else
