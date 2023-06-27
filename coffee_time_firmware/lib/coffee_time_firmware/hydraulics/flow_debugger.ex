@@ -1,8 +1,6 @@
 defmodule CoffeeTimeFirmware.Hydraulics.FlowDebugger do
   @moduledoc """
-  Applies a duty cycle to the boiler.
-
-  There's some interesting nuance here when trying to rapidly switch an AC
+  Helps debug the flow meter.
   """
 
   use GenServer

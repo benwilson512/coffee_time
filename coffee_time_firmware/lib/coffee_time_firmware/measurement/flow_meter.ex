@@ -1,8 +1,6 @@
 defmodule CoffeeTimeFirmware.Measurement.FlowMeter do
   @moduledoc """
-  Applies a duty cycle to the boiler.
-
-  There's some interesting nuance here when trying to rapidly switch an AC
+  Measures flow via the flow meter
   """
   alias CoffeeTimeFirmware.PubSub
 
