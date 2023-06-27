@@ -69,7 +69,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   Only one allowance of any given type and key are allowed at a time. Allowances
   are tied to the process which requests the allowance. This provices a nice
   safety mechanism in general, and in particular for the remote console
-  scenario is that once the user exits the shell any allowances are automatically
+  scenario in that once the user exits the shell any allowances are automatically
   reset.
   """
   @spec acquire_allowance(Context.t(), fault_type, atom, term) :: :ok | {:error, term}
@@ -173,6 +173,9 @@ defmodule CoffeeTimeFirmware.Watchdog do
   def handle_info({:DOWN, ref, :process, pid, _}, state) do
     state =
       state.allowances
+      # If we needed LOLSPEED here we could store an inverted index of ref to
+      # {type, key} but I mean really, 99.999% of the time there's gonna be
+      # just 1 allowance, and there's an upper bound of like 12. No point.
       |> Enum.filter(fn {_, allowance} ->
         allowance.ref == ref
       end)
@@ -263,6 +266,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   end
 
   defp replace_timer(state, key, type) do
+    # If a timer already exists for a given type
     if timer = state.timers[{type, key}] do
       Util.cancel_timer(timer)
       flush_timer(type, key)
@@ -346,7 +350,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
     }
 
     state
-    |> replace_config(key, type, value)
+    |> replace_config(type, key, value)
     |> Map.update!(:allowances, fn allowances ->
       Map.put(allowances, {type, key}, allowance)
     end)
@@ -371,7 +375,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
         state =
           %{state | allowances: allowances}
-          |> replace_config(key, type, allowance.previous_value)
+          |> replace_config(type, key, allowance.previous_value)
           |> Map.replace!(:allowances, allowances)
           |> replace_timer(key, type)
 
@@ -379,7 +383,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
     end
   end
 
-  defp replace_config(state, key, type, value) do
+  defp replace_config(state, type, key, value) do
     state
     |> Map.update!(type, fn config ->
       Map.replace!(config, key, value)

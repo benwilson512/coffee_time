@@ -197,6 +197,7 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     } do
       assert :ok = Watchdog.acquire_allowance(context, :deadline, :grouphead_solenoid, :infinity)
       assert :sys.get_state(watchdog_pid).deadline.grouphead_solenoid == :infinity
+      assert :sys.get_state(watchdog_pid).allowances[{:deadline, :grouphead_solenoid}]
       assert :ok = Watchdog.release_allowance(context, :deadline, :grouphead_solenoid)
       assert :sys.get_state(watchdog_pid).deadline.grouphead_solenoid == 1
       assert :sys.get_state(watchdog_pid).allowances == %{}
