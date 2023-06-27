@@ -59,9 +59,9 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
 
   defp init_state(data, config, now) do
     if sleep_time?(config, now) do
-      {:ok, :sleep, data}
+      :sleep
     else
-      {:ok, :ready, data}
+      :ready
     end
   end
 
