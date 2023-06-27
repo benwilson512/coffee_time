@@ -84,10 +84,11 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     )
   end
 
-  def init(%{context: context}) do
+  def init(%{context: context} = params) do
     data = %__MODULE__{
       context: context,
-      gpio_pins: setup_gpio_pins(context.hardware)
+      gpio_pins: setup_gpio_pins(context.hardware),
+      refill_allowance: params[:refill_allowance] || 60_000
     }
 
     Measurement.Store.subscribe(context, :boiler_fill_status)
@@ -142,7 +143,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     Boiler low, activating initial fill
     """)
 
-    Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, 60_000)
+    Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, data.refill_allowance)
     refill_solenoid_open!(data)
     pump_on!(data)
 
