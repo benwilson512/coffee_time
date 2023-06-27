@@ -134,7 +134,7 @@ defmodule CoffeeTimeFirmware.BaristaTest do
 
   defp spawn_subsystems(%{context: context} = info) do
     Measurement.Store.put(context, :boiler_fill_status, :full)
-    start_supervised!({CoffeeTimeFirmware.Hydraulics, %{context: context}})
+    start_supervised!({CoffeeTimeFirmware.Hydraulics, %{context: context}}, restart: :permanent)
 
     start_supervised!(
       {CoffeeTimeFirmware.Boiler,

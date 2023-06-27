@@ -39,6 +39,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
   require Logger
+  alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hardware
@@ -46,6 +47,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
 
   defstruct [
     :context,
+    :refill_allowance,
     gpio_pins: %{}
   ]
 
@@ -82,20 +84,28 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     )
   end
 
-  def init(%{context: context}) do
+  def init(%{context: context} = params) do
     data = %__MODULE__{
       context: context,
-      gpio_pins: setup_gpio_pins(context.hardware)
+      gpio_pins: setup_gpio_pins(context.hardware),
+      refill_allowance: params[:refill_allowance] || 60_000
     }
 
-    Measurement.Store.subscribe(data.context, :boiler_fill_status)
+    Measurement.Store.subscribe(context, :boiler_fill_status)
+    fill_status = Measurement.Store.get(context, :boiler_fill_status)
 
     cond do
       CoffeeTimeFirmware.Watchdog.get_fault(context) ->
         {:ok, :idle, data}
 
-      true ->
+      fill_status == :full ->
         {:ok, :ready, data}
+
+      fill_status == :low ->
+        {:ok, :initial_fill, data}
+
+      true ->
+        {:ok, :awaiting_initial_fill, data}
     end
   end
 
@@ -104,6 +114,48 @@ defmodule CoffeeTimeFirmware.Hydraulics do
 
   # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
   def handle_event(:info, _, :idle, _data) do
+    :keep_state_and_data
+  end
+
+  ## Awaiting Initial Fill
+  ########################
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :full}, :awaiting_initial_fill, data) do
+    {:next_state, :ready, data}
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :awaiting_initial_fill, data) do
+    {:next_state, :initial_fill, data}
+  end
+
+  ## Initial Fill
+  ########################
+
+  # In this state we are waiting to hear from the boiler fill for the first time to
+  # see if we need to do a full refill
+  # All actions are ignored other than fill messages.
+  # Unlike the normal
+
+  def handle_event(:enter, old_state, :initial_fill, data) do
+    Util.log_state_change(__MODULE__, old_state, :initial_fill)
+
+    Logger.notice("""
+    Boiler low, activating initial fill
+    """)
+
+    Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, data.refill_allowance)
+    refill_solenoid_open!(data)
+    pump_on!(data)
+
+    :keep_state_and_data
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_fill_status, :full}, :initial_fill, data) do
+    Watchdog.release_allowance(data.context, :deadline, :refill_solenoid)
+    {:next_state, :ready, data}
+  end
+
+  def handle_event(:info, _, :initial_fill, _data) do
     :keep_state_and_data
   end
 
@@ -178,6 +230,9 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     case solenoid do
       :grouphead ->
         grouphead_solenoid_open!(data)
+
+      :refill ->
+        refill_solenoid_open!(data)
     end
 
     :keep_state_and_data

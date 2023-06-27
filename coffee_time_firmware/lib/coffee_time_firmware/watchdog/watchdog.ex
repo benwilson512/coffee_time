@@ -17,9 +17,12 @@ defmodule CoffeeTimeFirmware.Watchdog do
     deadline: %{},
     healthcheck: %{},
     threshold: %{},
+    allowances: %{},
     reboot_on_fault: true,
     timers: %{}
   ]
+
+  @type fault_type :: :deadline | :healthcheck | :threshold
 
   @doc """
   Clears a fault and then restarts the application.
@@ -54,6 +57,33 @@ defmodule CoffeeTimeFirmware.Watchdog do
     context
     |> name(__MODULE__)
     |> GenServer.cast({:put_fault, reason})
+  end
+
+  @doc """
+  Adjust a watchdog trigger to allow for some new value or threshold
+
+  Primarily used by the hydraulics subsystem to allow the refill solenoid to
+  stay on longer than normal to fill the boiler. It's also often useful when
+  operating in remote console.
+
+  Only one allowance of any given type and key are allowed at a time. Allowances
+  are tied to the process which requests the allowance. This provices a nice
+  safety mechanism in general, and in particular for the remote console
+  scenario in that once the user exits the shell any allowances are automatically
+  reset.
+  """
+  @spec acquire_allowance(Context.t(), fault_type, atom, term) :: :ok | {:error, term}
+  def acquire_allowance(context, type, key, value, opts \\ []) do
+    context
+    |> name(__MODULE__)
+    |> GenServer.call({:acquire_allowance, type, key, value, opts[:owner] || self()})
+  end
+
+  @spec release_allowance(Context.t(), fault_type, atom) :: :ok | {:error, term}
+  def release_allowance(context, type, key) do
+    context
+    |> name(__MODULE__)
+    |> GenServer.call({:release_allowance, type, key})
   end
 
   def start_link(%{context: context} = params) do
@@ -111,12 +141,50 @@ defmodule CoffeeTimeFirmware.Watchdog do
     {:reply, :cleared, state, {:continue, :restart_self}}
   end
 
+  def handle_call({:acquire_allowance, type, key, value, owner}, _from, state) do
+    case Map.fetch(state.allowances, {type, key}) do
+      {:ok, %{owner: existing_owner}} ->
+        {:reply, {:error, {:already_taken, existing_owner}}, state}
+
+      _ ->
+        state = do_allowance(state, type, key, value, owner)
+        {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:release_allowance, type, key}, {from_pid, _}, state) do
+    case undo_allowance(state, type, key, from_pid) do
+      {:ok, state} ->
+        {:reply, :ok, state}
+
+      other ->
+        {:reply, other, state}
+    end
+  end
+
   def handle_cast({:put_fault, reason}, state) do
     {:stop, :fault, set_fault(state, reason)}
   end
 
   def handle_continue(:restart_self, state) do
     {:stop, :normal, state}
+  end
+
+  def handle_info({:DOWN, ref, :process, pid, _}, state) do
+    state =
+      state.allowances
+      # If we needed LOLSPEED here we could store an inverted index of ref to
+      # {type, key} but I mean really, 99.999% of the time there's gonna be
+      # just 1 allowance, and there's an upper bound of like 12. No point.
+      |> Enum.filter(fn {_, allowance} ->
+        allowance.ref == ref
+      end)
+      |> Enum.reduce(state, fn {{type, key}, _}, state ->
+        {:ok, state} = undo_allowance(state, type, key, pid)
+        state
+      end)
+
+    {:noreply, state}
   end
 
   def handle_info({:timer_expired, {type, key}}, state) do
@@ -191,9 +259,33 @@ defmodule CoffeeTimeFirmware.Watchdog do
   defp cancel_timer(state, type, key) do
     if timer = state.timers[{type, key}] do
       Util.cancel_timer(timer)
+      flush_timer(type, key)
     end
 
     put_in(state.timers[{type, key}], nil)
+  end
+
+  defp replace_timer(state, key, type) do
+    # If a timer already exists for a given type
+    if timer = state.timers[{type, key}] do
+      Util.cancel_timer(timer)
+      flush_timer(type, key)
+
+      put_in(state.timers[{type, key}], nil)
+      |> set_timer(type, key)
+    else
+      state
+    end
+  end
+
+  defp flush_timer(type, key) do
+    receive do
+      {:timer_expired, {^type, ^key}} ->
+        :ok
+    after
+      0 ->
+        :ok
+    end
   end
 
   def set_fault(%{fault: nil} = state, fault) do
@@ -239,6 +331,63 @@ defmodule CoffeeTimeFirmware.Watchdog do
       _ ->
         state
     end
+  end
+
+  defp do_allowance(state, type, key, value, owner) do
+    previous_value =
+      state
+      |> Map.fetch!(type)
+      |> Map.fetch!(key)
+
+    allowance = %{
+      new_value: value,
+      previous_value: previous_value,
+      owner: owner,
+      ref: Process.monitor(owner),
+      type: type,
+      key: key,
+      value: value
+    }
+
+    state
+    |> replace_config(type, key, value)
+    |> Map.update!(:allowances, fn allowances ->
+      Map.put(allowances, {type, key}, allowance)
+    end)
+    |> replace_timer(type, key)
+  end
+
+  defp undo_allowance(state, type, key, from_pid) do
+    case Map.pop(state.allowances, {type, key}) do
+      {nil, _} ->
+        {:error, :not_found}
+
+      {allowance, allowances} ->
+        if allowance.owner != from_pid do
+          Logger.warn("""
+          Allowance removed by different pid.
+          Owner: #{inspect(allowance.owner)}
+          Caller pid: #{inspect(from_pid)}
+
+          Allowance: #{inspect(allowance)}
+          """)
+        end
+
+        state =
+          %{state | allowances: allowances}
+          |> replace_config(type, key, allowance.previous_value)
+          |> Map.replace!(:allowances, allowances)
+          |> replace_timer(key, type)
+
+        {:ok, state}
+    end
+  end
+
+  defp replace_config(state, type, key, value) do
+    state
+    |> Map.update!(type, fn config ->
+      Map.replace!(config, key, value)
+    end)
   end
 
   def fault_file_path(%{data_dir: dir}) do

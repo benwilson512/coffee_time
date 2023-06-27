@@ -10,6 +10,8 @@ Application.start(:nerves_bootstrap)
 
 config :coffee_time_firmware, target: Mix.target(), run: true
 
+config :coffee_time_firmware, timezone: "America/New_York"
+
 config :logger, format: "$time $metadata[$level] $message\n"
 
 # Customize non-Elixir parts of the firmware. See
