@@ -49,7 +49,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     PubSub.subscribe(context, :barista)
 
     config = lookup_config(context)
-    now = DateTime.utc_now()
+    now = DateTime.utc_now() |> DateTime.shift_zone!(timezone())
     state = init_state(config, now)
 
     set_quantum_jobs(context, config)
@@ -70,7 +70,8 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
 
     case config[:power_saver_interval] do
       {from = %Time{}, to = %Time{}} ->
-        compare?(current_time >= from or current_time <= to)
+        # the awake time is between from and to, so sleep time is not awake time.
+        not compare?(from <= current_time <= to, Time)
 
       _ ->
         false
@@ -153,10 +154,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
 
   defp set_job(name, cron_spec, fun) do
     CoffeeTimeFirmware.Scheduler.new_job()
-    |> Quantum.Job.set_timezone("America/New_York")
+    |> Quantum.Job.set_timezone(timezone())
     |> Quantum.Job.set_name(name)
     |> Quantum.Job.set_schedule(cron_spec)
     |> Quantum.Job.set_task(fun)
     |> CoffeeTimeFirmware.Scheduler.add_job()
+  end
+
+  defp timezone() do
+    Application.fetch_env!(:coffee_time_firmware, :timezone)
   end
 end
