@@ -76,7 +76,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   def acquire_allowance(context, type, key, value, opts \\ []) do
     context
     |> name(__MODULE__)
-    |> GenServer.call({:acquire_allowance, type, key, value, opts[:caller] || self()})
+    |> GenServer.call({:acquire_allowance, type, key, value, opts[:owner] || self()})
   end
 
   @spec release_allowance(Context.t(), fault_type, atom) :: :ok | {:error, term}
@@ -144,7 +144,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
   def handle_call({:acquire_allowance, type, key, value, owner}, _from, state) do
     case Map.fetch(state.allowances, {type, key}) do
       {:ok, %{owner: existing_owner}} ->
-        {:reply, {:error, {:already_taken, existing_owner}}}
+        {:reply, {:error, {:already_taken, existing_owner}}, state}
 
       _ ->
         state = do_allowance(state, type, key, value, owner)
@@ -168,6 +168,20 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
   def handle_continue(:restart_self, state) do
     {:stop, :normal, state}
+  end
+
+  def handle_info({:DOWN, ref, :process, pid, _}, state) do
+    state =
+      state.allowances
+      |> Enum.filter(fn {_, allowance} ->
+        allowance.ref == ref
+      end)
+      |> Enum.reduce(state, fn {{type, key}, _}, state ->
+        {:ok, state} = undo_allowance(state, type, key, pid)
+        state
+      end)
+
+    {:noreply, state}
   end
 
   def handle_info({:timer_expired, {type, key}}, state) do

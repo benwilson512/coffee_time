@@ -187,6 +187,50 @@ defmodule CoffeeTimeFirmware.WatchdogTest do
     end
   end
 
+  describe "allowances" do
+    setup [:setup_watchdog]
+
+    @tag deadline: %{grouphead_solenoid: 1}
+    test "an allowance can be acquired and then released", %{
+      context: context,
+      watchdog_pid: watchdog_pid
+    } do
+      assert :ok = Watchdog.acquire_allowance(context, :deadline, :grouphead_solenoid, :infinity)
+      assert :sys.get_state(watchdog_pid).deadline.grouphead_solenoid == :infinity
+      assert :ok = Watchdog.release_allowance(context, :deadline, :grouphead_solenoid)
+      assert :sys.get_state(watchdog_pid).deadline.grouphead_solenoid == 1
+      assert :sys.get_state(watchdog_pid).allowances == %{}
+    end
+
+    @tag deadline: %{grouphead_solenoid: 1}
+    test "an allowance cannot be acquired multiple times", %{context: context} do
+      self = self()
+      assert :ok = Watchdog.acquire_allowance(context, :deadline, :grouphead_solenoid, :infinity)
+
+      assert {:error, {:already_taken, ^self}} =
+               Watchdog.acquire_allowance(context, :deadline, :grouphead_solenoid, :infinity)
+    end
+
+    @tag deadline: %{grouphead_solenoid: 1}
+    test "allowances are released when the owner pid dies", %{
+      context: context,
+      watchdog_pid: watchdog_pid
+    } do
+      owner_pid = spawn(fn -> Process.sleep(:infinity) end)
+
+      assert :ok =
+               Watchdog.acquire_allowance(context, :deadline, :grouphead_solenoid, :infinity,
+                 owner: owner_pid
+               )
+
+      Process.exit(owner_pid, :kill)
+      refute Process.alive?(owner_pid)
+
+      assert :sys.get_state(watchdog_pid).deadline.grouphead_solenoid == 1
+      assert :sys.get_state(watchdog_pid).allowances == %{}
+    end
+  end
+
   defp setup_watchdog(%{context: context} = params) do
     pid =
       start_supervised!(
