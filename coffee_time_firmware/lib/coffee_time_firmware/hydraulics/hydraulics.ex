@@ -39,7 +39,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   import CoffeeTimeFirmware.Application, only: [name: 2]
 
   require Logger
-  # alias CoffeeTimeFirmware.Watchdog
+  alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.PubSub
   alias CoffeeTimeFirmware.Measurement
   alias CoffeeTimeFirmware.Hardware
@@ -47,6 +47,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
 
   defstruct [
     :context,
+    :refill_allowance,
     gpio_pins: %{}
   ]
 
@@ -126,7 +127,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     Boiler low, activating initial fill
     """)
 
-    # Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, 60_000)
+    Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, 60_000)
     refill_solenoid_open!(data)
     pump_on!(data)
 
