@@ -119,8 +119,16 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   # All actions are ignored other than fill messages.
   # Unlike the normal
 
-  def handle_event(:enter, old_state, :initial_fill, _data) do
+  def handle_event(:enter, old_state, :initial_fill, data) do
     Util.log_state_change(__MODULE__, old_state, :initial_fill)
+
+    Logger.notice("""
+    Boiler low, activating initial fill
+    """)
+
+    # Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, 60_000)
+    refill_solenoid_open!(data)
+    pump_on!(data)
 
     :keep_state_and_data
   end
@@ -130,16 +138,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     {:next_state, :ready, data}
   end
 
-  def handle_event(:info, {:broadcast, :boiler_fill_status, :low}, :initial_fill, data) do
-    # Watchdog.acquire_allowance(data.context, :deadline, :refill_solenoid, 60_000)
-
-    Logger.notice("""
-    Boiler low, activating initial fill
-    """)
-
-    refill_solenoid_open!(data)
-    pump_on!(data)
-
+  def handle_event(:info, _, :initial_fill, _data) do
     :keep_state_and_data
   end
 
