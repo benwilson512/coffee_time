@@ -51,11 +51,11 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
       CoffeeTimeFirmware.Watchdog.get_fault(context) ->
         {:ok, :idle, data}
 
-      Measurement.Store.get(data.context, :boiler_fill_status) != :full ->
-        {:ok, :awaiting_boiler_fill, data}
+      Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
+        {:ok, :hold_temp, data}
 
       true ->
-        {:ok, :hold_temp, data}
+        {:ok, :awaiting_boiler_fill, data}
     end
   end
 
@@ -89,7 +89,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     data = %{data | target_duty_cycle: 0}
     set_duty_cycle!(data)
 
-    {:keep_state, %{data | target_duty_cycle: 0}}
+    {:keep_state, data}
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
