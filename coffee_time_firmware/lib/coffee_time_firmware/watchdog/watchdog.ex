@@ -152,6 +152,16 @@ defmodule CoffeeTimeFirmware.Watchdog do
     end
   end
 
+  def handle_call({:release_allowance, type, key}, {from_pid, _}, state) do
+    case undo_allowance(state, type, key, from_pid) do
+      {:ok, state} ->
+        {:reply, :ok, state}
+
+      other ->
+        {:reply, other, state}
+    end
+  end
+
   def handle_cast({:put_fault, reason}, state) do
     {:stop, :fault, set_fault(state, reason)}
   end
@@ -238,6 +248,18 @@ defmodule CoffeeTimeFirmware.Watchdog do
     put_in(state.timers[{type, key}], nil)
   end
 
+  defp replace_timer(state, key, type) do
+    if timer = state.timers[{type, key}] do
+      Util.cancel_timer(timer)
+      flush_timer(type, key)
+
+      put_in(state.timers[{type, key}], nil)
+      |> set_timer(type, key)
+    else
+      state
+    end
+  end
+
   defp flush_timer(type, key) do
     receive do
       {:timer_expired, {^type, ^key}} ->
@@ -310,25 +332,44 @@ defmodule CoffeeTimeFirmware.Watchdog do
     }
 
     state
-    |> Map.update!(type, fn config ->
-      Map.replace!(config, key, value)
-    end)
+    |> replace_config(key, type, value)
     |> Map.update!(:allowances, fn allowances ->
       Map.put(allowances, {type, key}, allowance)
     end)
     |> replace_timer(type, key)
   end
 
-  defp replace_timer(state, key, type) do
-    if timer = state.timers[{type, key}] do
-      Util.cancel_timer(timer)
-      flush_timer(type, key)
+  defp undo_allowance(state, type, key, from_pid) do
+    case Map.pop(state.allowances, {type, key}) do
+      {nil, _} ->
+        {:error, :not_found}
 
-      put_in(state.timers[{type, key}], nil)
-      |> set_timer(type, key)
-    else
-      state
+      {allowance, allowances} ->
+        if allowance.owner != from_pid do
+          Logger.warn("""
+          Allowance removed by different pid.
+          Owner: #{inspect(allowance.owner)}
+          Caller pid: #{inspect(from_pid)}
+
+          Allowance: #{inspect(allowance)}
+          """)
+        end
+
+        state =
+          %{state | allowances: allowances}
+          |> replace_config(key, type, allowance.previous_value)
+          |> Map.replace!(:allowances, allowances)
+          |> replace_timer(key, type)
+
+        {:ok, state}
     end
+  end
+
+  defp replace_config(state, key, type, value) do
+    state
+    |> Map.update!(type, fn config ->
+      Map.replace!(config, key, value)
+    end)
   end
 
   def fault_file_path(%{data_dir: dir}) do

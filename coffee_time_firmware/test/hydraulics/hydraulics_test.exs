@@ -67,20 +67,32 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
       {:ok, _} = Hydraulics.start_link(%{context: context})
 
       assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
+      assert_receive {:write_gpio, :refill_solenoid, 0}
+      assert_receive {:write_gpio, :pump, 0}
+
       Measurement.Store.put(context, :boiler_fill_status, :full)
       assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
+      assert_receive {:write_gpio, :refill_solenoid, 1}
+      assert_receive {:write_gpio, :pump, 1}
     end
 
     @tag watchdog: %{deadline: %{refill_solenoid: 1}}
+    @tag :capture_log
     test "The hydraulics system is allowed to take a while to fill up", %{context: context} do
       PubSub.subscribe(context, :watchdog)
       {:ok, _} = Hydraulics.start_link(%{context: context})
       assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
-      Process.sleep(100)
+      Process.sleep(50)
 
-      assert_receive {:write_gpio, :refill_solenoid, 0}
-      assert_receive {:write_gpio, :pump, 0}
       refute_receive {:broadcast, :watchdog, :fault_state}
+
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+      assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
+
+      # After it's full however we are back to the original limit
+      Hydraulics.open_solenoid(context, :refill)
+      Process.sleep(50)
+      assert_receive {:broadcast, :watchdog, :fault_state}
     end
   end
 

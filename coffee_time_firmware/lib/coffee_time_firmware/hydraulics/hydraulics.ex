@@ -135,7 +135,7 @@ defmodule CoffeeTimeFirmware.Hydraulics do
   end
 
   def handle_event(:info, {:broadcast, :boiler_fill_status, :full}, :initial_fill, data) do
-    # Watchdog.release_allowance(data.context, :deadline, :refill_solenoid)
+    Watchdog.release_allowance(data.context, :deadline, :refill_solenoid)
     {:next_state, :ready, data}
   end
 
@@ -214,6 +214,9 @@ defmodule CoffeeTimeFirmware.Hydraulics do
     case solenoid do
       :grouphead ->
         grouphead_solenoid_open!(data)
+
+      :refill ->
+        refill_solenoid_open!(data)
     end
 
     :keep_state_and_data
