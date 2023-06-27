@@ -34,25 +34,7 @@ defmodule CoffeeTimeFirmware.ContextCase do
     {:ok, _x} = Registry.start_link(keys: :duplicate, name: context.pubsub, partitions: 1)
     {:ok, _x} = CubDB.start_link(cubdb_opts)
 
-    if Map.get(info, :watchdog) do
-      config = %{
-        reboot_on_fault: false,
-        deadline: %{
-          pump: :infinity,
-          grouphead_solenoid: :infinity,
-          refill_solenoid: :infinity
-        },
-        healthcheck: %{
-          cpu_temp: :infinity,
-          boiler_temp: :infinity,
-          boiler_fill_status: :infinity
-        },
-        threshold: %{
-          cpu_temp: 1000,
-          boiler_temp: 1000
-        }
-      }
-
+    if config = watchdog_config(info) do
       start_supervised!(
         {CoffeeTimeFirmware.Watchdog,
          %{
@@ -67,6 +49,47 @@ defmodule CoffeeTimeFirmware.ContextCase do
     end
 
     {:ok, %{context: context}}
+  end
+
+  defp watchdog_config(info) do
+    default_config = %{
+      reboot_on_fault: false,
+      deadline: %{
+        pump: :infinity,
+        grouphead_solenoid: :infinity,
+        refill_solenoid: :infinity
+      },
+      healthcheck: %{
+        cpu_temp: :infinity,
+        boiler_temp: :infinity,
+        boiler_fill_status: :infinity
+      },
+      threshold: %{
+        cpu_temp: 1000,
+        boiler_temp: 1000
+      }
+    }
+
+    case info do
+      %{watchdog: true} ->
+        default_config
+
+      %{watchdog: config_overrides} ->
+        deep_merge(default_config, config_overrides)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp deep_merge(default, overrides) do
+    Map.merge(default, overrides, fn
+      _, %{} = val1, %{} = val2 ->
+        deep_merge(val1, val2)
+
+      _, _, val2 ->
+        val2
+    end)
   end
 
   defp unique_name() do

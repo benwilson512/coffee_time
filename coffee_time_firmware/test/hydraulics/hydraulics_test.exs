@@ -71,7 +71,16 @@ defmodule CoffeeTimeFirmware.HydraulicsTest do
       assert {:ready, _} = :sys.get_state(name(context, Hydraulics))
     end
 
+    @tag watchdog: %{deadline: %{refill_solenoid: 1}}
     test "The hydraulics system is allowed to take a while to fill up", %{context: context} do
+      PubSub.subscribe(context, :watchdog)
+      {:ok, _} = Hydraulics.start_link(%{context: context})
+      assert {:initial_fill, _} = :sys.get_state(name(context, Hydraulics))
+      Process.sleep(100)
+
+      assert_receive {:write_gpio, :refill_solenoid, 0}
+      assert_receive {:write_gpio, :pump, 0}
+      refute_receive {:broadcast, :watchdog, :fault_state}
     end
   end
 
