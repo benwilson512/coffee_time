@@ -43,7 +43,7 @@ defmodule Help do
   ]
   def __reseed__() do
     context = context()
-    [{db, _}] = Registry.lookup(context.registry, :db)
+    db = CoffeeTimeFirmware.Application.db(context)
     now = DateTime.utc_now() |> DateTime.to_iso8601()
     CubDB.back_up(db, Path.join([context.data_dir, "coffee_time_db-#{now}"]))
 

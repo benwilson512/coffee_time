@@ -7,7 +7,9 @@ defmodule CoffeeTimeFirmware.Application do
   def start(_type, _args) do
     opts = [strategy: :rest_for_one, name: CoffeeTimeFirmware.Supervisor]
 
-    context = CoffeeTimeFirmware.Context.new(target())
+    context =
+      CoffeeTimeFirmware.Context.new(target())
+      |> Map.replace!(:root, true)
 
     children = children(context, Application.get_env(:coffee_time_firmware, :run))
 
@@ -48,7 +50,15 @@ defmodule CoffeeTimeFirmware.Application do
   end
 
   def name(context, atom) do
-    {:via, Registry, {context.registry, atom}}
+    if context.root do
+      atom
+    else
+      {:via, Registry, {context.registry, atom}}
+    end
+  end
+
+  def db(context) do
+    GenServer.whereis(CoffeeTimeFirmware.Application.name(context, :db))
   end
 
   def pi_only(child) do

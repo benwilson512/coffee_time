@@ -5,7 +5,7 @@ defmodule CoffeeTimeFirmware.Barista do
 
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
 
-  import CoffeeTimeFirmware.Application, only: [name: 2]
+  import CoffeeTimeFirmware.Application, only: [name: 2, db: 1]
 
   require Logger
   alias CoffeeTimeFirmware.PubSub
@@ -16,7 +16,6 @@ defmodule CoffeeTimeFirmware.Barista do
 
   defstruct [
     :context,
-    :db,
     :current_program,
     steps: [],
     timers: %{}
@@ -32,7 +31,7 @@ defmodule CoffeeTimeFirmware.Barista do
   def save_program(context, %__MODULE__.Program{name: name} = program) do
     case __MODULE__.Program.validate(program) do
       [] ->
-        CubDB.put(name(context, :db), {:program, name}, program)
+        CubDB.put(db(context), {:program, name}, program)
         :ok
 
       errors ->
@@ -41,7 +40,7 @@ defmodule CoffeeTimeFirmware.Barista do
   end
 
   def get_program(context, name) do
-    CubDB.get(name(context, :db), {:program, name})
+    CubDB.get(db(context), {:program, name})
   end
 
   def list_programs(context) do
@@ -50,7 +49,7 @@ defmodule CoffeeTimeFirmware.Barista do
     # `1` is less than all atoms, and tuples are greater than all atoms. So if you want all keys that
     # are {:program, *} you just use 1 and {} to be less than and greater than all atoms respectively.
     context
-    |> name(:db)
+    |> db
     |> CubDB.select(min_key: {:program, 1}, max_key: {:program, {}})
     |> Enum.to_list()
   end
@@ -91,6 +90,7 @@ defmodule CoffeeTimeFirmware.Barista do
     end
   end
 
+  @spec halt(atom | %{:root => any, optional(any) => any}) :: any
   def halt(context) do
     context
     |> name(__MODULE__)
@@ -98,8 +98,7 @@ defmodule CoffeeTimeFirmware.Barista do
   end
 
   def init(%{context: context}) do
-    [{db, _}] = Registry.lookup(context.registry, :db)
-    state = %__MODULE__{context: context, db: db}
+    state = %__MODULE__{context: context}
 
     # This module doesn't need an `:idle` state since it doesn't directly control anything. If you ask
     # the barista process to try to run a program while the hydraulics or temp control is idle due to
@@ -245,12 +244,12 @@ defmodule CoffeeTimeFirmware.Barista do
   ######################
 
   defp link!(context, name) do
-    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid = GenServer.whereis(CoffeeTimeFirmware.Application.name(context, name))
     Process.link(pid)
   end
 
   defp unlink!(context, name) do
-    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid = GenServer.whereis(CoffeeTimeFirmware.Application.name(context, name))
     Process.unlink(pid)
   end
 end

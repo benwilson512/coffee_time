@@ -5,7 +5,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
 
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
 
-  import CoffeeTimeFirmware.Application, only: [name: 2]
+  import CoffeeTimeFirmware.Application, only: [db: 1, name: 2]
 
   alias CoffeeTimeFirmware.Barista
   alias CoffeeTimeFirmware.Hardware
@@ -17,7 +17,6 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   defstruct [
     :context,
     :config,
-    :db,
     :barista_monitor,
     gpio_pins: %{},
     interrupts: %{},
@@ -32,14 +31,11 @@ defmodule CoffeeTimeFirmware.ControlPanel do
     gpio_pins = setup_gpio_pins(context.hardware)
     interrupts = setup_interrupts(context.hardware, gpio_pins)
 
-    [{db, _}] = Registry.lookup(context.registry, :db)
-
     data = %__MODULE__{
       context: context,
       config: config,
       gpio_pins: gpio_pins,
-      interrupts: interrupts,
-      db: db
+      interrupts: interrupts
     }
 
     PubSub.subscribe(context, :barista)
@@ -114,7 +110,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   def handle_event(:info, {:circuits_gpio, ref, timestamp, 0}, {:press, ref, _}, data) do
     logical_button = Map.fetch!(data.interrupts, ref)
 
-    with {:program, program} <- CubDB.get(data.db, {:control_panel, logical_button}),
+    with {:program, program} <- CubDB.get(db(data.context), {:control_panel, logical_button}),
          :ok <- Barista.run_program(data.context, program) do
       {:next_state, {:watching, %{ref: ref, timestamp: timestamp, program: program}}, data}
     else
@@ -208,7 +204,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   end
 
   defp monitor_barista(%{context: context} = data) do
-    [{pid, _}] = Registry.lookup(context.registry, Barista)
+    pid = GenServer.whereis(name(context, Barista))
     ref = Process.monitor(pid)
     %{data | barista_monitor: ref}
   end
