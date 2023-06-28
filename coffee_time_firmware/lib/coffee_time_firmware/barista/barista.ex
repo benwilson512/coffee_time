@@ -91,6 +91,7 @@ defmodule CoffeeTimeFirmware.Barista do
     end
   end
 
+  @spec halt(atom | %{:root => any, optional(any) => any}) :: any
   def halt(context) do
     context
     |> name(__MODULE__)
@@ -98,7 +99,7 @@ defmodule CoffeeTimeFirmware.Barista do
   end
 
   def init(%{context: context}) do
-    [{db, _}] = Registry.lookup(context.registry, :db)
+    db = GenServer.whereis(CoffeeTimeFirmware.Application.name(context, :db))
     state = %__MODULE__{context: context, db: db}
 
     # This module doesn't need an `:idle` state since it doesn't directly control anything. If you ask
@@ -245,12 +246,12 @@ defmodule CoffeeTimeFirmware.Barista do
   ######################
 
   defp link!(context, name) do
-    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid = GenServer.whereis(CoffeeTimeFirmware.Application.name(context, name))
     Process.link(pid)
   end
 
   defp unlink!(context, name) do
-    [{pid, _}] = Registry.lookup(context.registry, name)
+    pid = GenServer.whereis(CoffeeTimeFirmware.Application.name(context, name))
     Process.unlink(pid)
   end
 end

@@ -9,7 +9,8 @@ defmodule CoffeeTimeFirmware.Context do
     :registry,
     :pubsub,
     :hardware,
-    :data_dir
+    :data_dir,
+    root: false
   ]
 
   @type t() :: %__MODULE__{
@@ -39,8 +40,7 @@ defmodule CoffeeTimeFirmware.Context do
   end
 
   def get_pid(context, name) do
-    [{pid, _}] = Registry.lookup(context.registry, name)
-    pid
+    GenServer.whereis(CoffeeTimeFirmware.Application.name(context, name))
   end
 
   def watchdog_config(:rpi3) do
