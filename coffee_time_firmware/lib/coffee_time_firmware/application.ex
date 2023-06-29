@@ -7,9 +7,7 @@ defmodule CoffeeTimeFirmware.Application do
   def start(_type, _args) do
     opts = [strategy: :rest_for_one, name: CoffeeTimeFirmware.Supervisor]
 
-    context =
-      CoffeeTimeFirmware.Context.new(target())
-      |> Map.replace!(:root, true)
+    context = CoffeeTimeFirmware.Context.new(target())
 
     children = children(context, Application.get_env(:coffee_time_firmware, :run))
 

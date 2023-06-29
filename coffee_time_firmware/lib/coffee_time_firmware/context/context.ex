@@ -35,7 +35,8 @@ defmodule CoffeeTimeFirmware.Context do
       registry: CoffeeTimeFirmware.Registry,
       pubsub: CoffeeTimeFirmware.PubSub,
       hardware: %CoffeeTimeFirmware.Hardware.Pi{},
-      data_dir: "/data"
+      data_dir: "/data",
+      root: true
     }
   end
 
