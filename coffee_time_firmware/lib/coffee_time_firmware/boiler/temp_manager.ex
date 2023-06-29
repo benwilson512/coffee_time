@@ -71,7 +71,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempManager do
     case config[:power_saver_interval] do
       {from = %Time{}, to = %Time{}} ->
         # the awake time is between from and to, so sleep time is not awake time.
-        not compare?(from <= current_time <= to, Time)
+        not compare?(to <= current_time <= from, Time)
 
       _ ->
         false
