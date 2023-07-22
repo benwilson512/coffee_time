@@ -16,7 +16,13 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Util
 
-  defstruct target_temperature: 0, context: nil, target_duty_cycle: 0
+  defstruct target_temperature: 0,
+            context: nil,
+            target_duty_cycle: 0,
+            hold_mode: :max,
+            temp_backoff_timer: nil,
+            temp_backoff_offset: 8,
+            temp_backoff_duration: :timer.minutes(5)
 
   def set_target_temp(context, temp) do
     context
@@ -115,11 +121,9 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
     data =
-      if val < prev_data.target_temperature do
-        %{prev_data | target_duty_cycle: 10}
-      else
-        %{prev_data | target_duty_cycle: 0}
-      end
+      prev_data
+      |> adjust_hold_mode(val)
+      |> adjust_target_duty_cycle(val)
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
       set_duty_cycle!(data)
@@ -139,6 +143,16 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     end
   end
 
+  def handle_event(:info, :gomax, :hold_temp, data) do
+    if timer = data.temp_backoff_timer do
+      Util.cancel_timer(timer)
+    end
+
+    data = %{data | hold_mode: :max, temp_backoff_timer: nil}
+
+    {:next_state, :hold_temp, data}
+  end
+
   def handle_event(:enter, old_state, new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
@@ -148,5 +162,47 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   defp set_duty_cycle!(%{target_duty_cycle: cycle, context: context}) do
     Logger.info("Changing duty cycle: #{cycle}")
     :ok = Boiler.DutyCycle.set(context, cycle)
+  end
+
+  def adjust_hold_mode(%{hold_mode: :backoff} = data, _) do
+    data
+  end
+
+  def adjust_hold_mode(data, value) do
+    if data.target_temperature - value > 10 do
+      %{data | hold_mode: :backoff}
+    else
+      data
+    end
+  end
+
+  def adjust_target_duty_cycle(data, value) do
+    if value < threshold(data) do
+      %{data | target_duty_cycle: 10}
+    else
+      data
+      |> Map.replace(:target_duty_cycle, 0)
+      |> maybe_set_backoff_timer()
+    end
+  end
+
+  def threshold(data) do
+    case data.hold_mode do
+      :max -> data.target_temperature
+      :backoff -> data.target_temperature - data.temp_backoff_offset
+    end
+  end
+
+  def maybe_set_backoff_timer(data) do
+    case data do
+      %{hold_mode: :backoff, temp_backoff_timer: nil} ->
+        %{
+          data
+          | temp_backoff_timer: Util.send_after(self(), :gomax, data.temp_backoff_duration)
+        }
+
+      _ ->
+        data
+    end
   end
 end
