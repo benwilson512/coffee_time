@@ -10,7 +10,15 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   alias CoffeeTimeFirmware.Util
 
-  defstruct [:context, :gpio, write_interval: 100, duty_cycle: 0, counter: 1, subdivisions: 10]
+  defstruct [
+    :context,
+    :gpio,
+    write_interval: 100,
+    duty_cycle: 0,
+    counter: 1,
+    subdivisions: 10,
+    maintenance_mode: false
+  ]
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
@@ -24,6 +32,12 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
 
     :ok
+  end
+
+  def trigger_maintenance_mode(context) do
+    context
+    |> CoffeeTimeFirmware.Application.name(__MODULE__)
+    |> GenServer.call(:trigger_maintenance_mode)
   end
 
   def start_link(%{context: context} = params) do
@@ -56,6 +70,11 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     {:stop, reason}
   end
 
+  def handle_call(:trigger_maintenance_mode, _from, state) do
+    state = %{state | maintenance_mode: true}
+    {:reply, :ok, state, {:continue, :cycle}}
+  end
+
   def handle_cast({:set, int}, state) do
     {:noreply, %{state | duty_cycle: int}, {:continue, :cycle}}
   end
@@ -72,10 +91,15 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   def handle_continue(:cycle, state) do
     gpio_val =
-      if state.counter <= state.duty_cycle do
-        1
-      else
-        0
+      cond do
+        state.maintenance_mode ->
+          0
+
+        state.counter <= state.duty_cycle ->
+          1
+
+        true ->
+          0
       end
 
     CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)

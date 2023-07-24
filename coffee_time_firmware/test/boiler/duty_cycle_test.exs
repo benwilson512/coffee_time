@@ -87,6 +87,30 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
     end
   end
 
+  describe "maintenance mode" do
+    setup :setup_process
+
+    test "Maintenance mode means it's always off", %{context: context, pid: pid} do
+      Boiler.DutyCycle.set(context, 10)
+
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 1})
+
+      # Trigger maintenance mode
+      Boiler.DutyCycle.trigger_maintenance_mode(context)
+
+      assert %{duty_cycle: 10} = :sys.get_state(pid)
+
+      # Even though the duty cycle is 10, we still get all 0
+      # writes because of maintenance mode
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 0})
+
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 0})
+    end
+  end
+
   def setup_process(%{context: context}) do
     {:ok, pid} =
       start_supervised({
