@@ -19,10 +19,10 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   defstruct target_temperature: 0,
             context: nil,
             target_duty_cycle: 0,
-            hold_mode: :max,
-            temp_backoff_timer: nil,
-            temp_backoff_offset: 5,
-            temp_backoff_duration: :timer.minutes(2)
+            hold_mode: :maintain,
+            temp_reheat_timer: nil,
+            temp_reheat_offset: 5,
+            temp_reheat_duration: :timer.minutes(2)
 
   def set_target_temp(context, temp) do
     context
@@ -143,12 +143,12 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     end
   end
 
-  def handle_event(:info, :gomax, :hold_temp, data) do
-    if timer = data.temp_backoff_timer do
+  def handle_event(:info, :reheat_complete, :hold_temp, data) do
+    if timer = data.temp_reheat_timer do
       Util.cancel_timer(timer)
     end
 
-    data = %{data | hold_mode: :max, temp_backoff_timer: nil}
+    data = %{data | hold_mode: :maintain, temp_reheat_timer: nil}
 
     {:next_state, :hold_temp, data}
   end
@@ -164,15 +164,15 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     :ok = Boiler.DutyCycle.set(context, cycle)
   end
 
-  def adjust_hold_mode(%{hold_mode: :backoff} = data, _) do
+  def adjust_hold_mode(%{hold_mode: :reheat} = data, _) do
     data
   end
 
   def adjust_hold_mode(data, value) do
-    backoff_threshold = data.target_temperature - data.temp_backoff_offset
+    reheat_threshold = data.target_temperature - data.temp_reheat_offset
 
-    if value < backoff_threshold do
-      %{data | hold_mode: :backoff}
+    if value < reheat_threshold do
+      %{data | hold_mode: :reheat}
     else
       data
     end
@@ -184,23 +184,24 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     else
       data
       |> Map.replace(:target_duty_cycle, 0)
-      |> maybe_set_backoff_timer()
+      |> maybe_set_reheat_timer()
     end
   end
 
   def threshold(data) do
     case data.hold_mode do
-      :max -> data.target_temperature
-      :backoff -> data.target_temperature - data.temp_backoff_offset
+      :maintain -> data.target_temperature
+      :reheat -> data.target_temperature - data.temp_reheat_offset
     end
   end
 
-  def maybe_set_backoff_timer(data) do
+  def maybe_set_reheat_timer(data) do
     case data do
-      %{hold_mode: :backoff, temp_backoff_timer: nil} ->
+      %{hold_mode: :reheat, temp_reheat_timer: nil} ->
         %{
           data
-          | temp_backoff_timer: Util.send_after(self(), :gomax, data.temp_backoff_duration)
+          | temp_reheat_timer:
+              Util.send_after(self(), :reheat_complete, data.temp_reheat_duration)
         }
 
       _ ->

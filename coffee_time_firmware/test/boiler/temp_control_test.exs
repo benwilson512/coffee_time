@@ -67,7 +67,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
     end
   end
 
-  describe "init_boot phase" do
+  describe "reheat process" do
     setup :boot
 
     test "low boiler temperature compared to the target temp triggers an initialization phase", %{
@@ -81,8 +81,8 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       TempControl.set_target_temp(context, 121)
       Measurement.Store.put(context, :boiler_temp, 34)
 
-      # This should kick us into the boiler temp backoff
-      assert {:hold_temp, %{hold_mode: :backoff}} = :sys.get_state(name(context, TempControl))
+      # This should kick us into the boiler temp reheat
+      assert {:hold_temp, %{hold_mode: :reheat}} = :sys.get_state(name(context, TempControl))
 
       # After another reading confirming our temp in this state we should
       # start heating
@@ -94,21 +94,21 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       Measurement.Store.put(context, :boiler_temp, 116)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert state.temp_backoff_timer
-      assert state.hold_mode == :backoff
+      assert state.temp_reheat_timer
+      assert state.hold_mode == :reheat
 
       # If we drop below the reduced temp we still add heat, but the timer should not change
       Measurement.Store.put(context, :boiler_temp, 115)
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert state.temp_backoff_timer
-      assert state.hold_mode == :backoff
+      assert state.temp_reheat_timer
+      assert state.hold_mode == :reheat
 
       # Sending the booted message should kick us over to hold temp, and we shouldn't have the timer anymore.
-      send(lookup_pid(context, TempControl), :gomax)
+      send(lookup_pid(context, TempControl), :reheat_complete)
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      refute state.temp_backoff_timer
-      assert state.hold_mode == :max
+      refute state.temp_reheat_timer
+      assert state.hold_mode == :maintain
     end
   end
 
