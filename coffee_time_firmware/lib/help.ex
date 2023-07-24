@@ -11,8 +11,8 @@ defmodule Help do
     CoffeeTimeFirmware.Context.new(:rpi3)
   end
 
-  def trigger_maintenance_mode() do
-    CoffeeTimeFirmware.Boiler.DutyCycle.trigger_maintenance_mode(context())
+  def set_maintenance_mode(arg) do
+    CoffeeTimeFirmware.Boiler.DutyCycle.set_maintenance_mode(context(), arg)
   end
 
   @programs [
