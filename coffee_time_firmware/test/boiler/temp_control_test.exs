@@ -91,14 +91,14 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
 
       # Once we are more than the offset, we should turn off the boiler and start
       # the timer
-      Measurement.Store.put(context, :boiler_temp, 113)
+      Measurement.Store.put(context, :boiler_temp, 116)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
       assert state.temp_backoff_timer
       assert state.hold_mode == :backoff
 
       # If we drop below the reduced temp we still add heat, but the timer should not change
-      Measurement.Store.put(context, :boiler_temp, 112)
+      Measurement.Store.put(context, :boiler_temp, 115)
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
       assert state.temp_backoff_timer
