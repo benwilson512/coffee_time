@@ -10,7 +10,19 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   alias CoffeeTimeFirmware.Util
 
-  defstruct [:context, :gpio, write_interval: 100, duty_cycle: 0, counter: 1, subdivisions: 10]
+  import CoffeeTimeFirmware.Application, only: [name: 2, db: 1]
+
+  defstruct [
+    :context,
+    :gpio,
+    write_interval: 100,
+    duty_cycle: 0,
+    counter: 1,
+    subdivisions: 10,
+    maintenance_mode: :off
+  ]
+
+  @maintenance_mode_key {__MODULE__, :maintenance_mode}
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
@@ -18,7 +30,7 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     """)
 
     context
-    |> CoffeeTimeFirmware.Application.name(__MODULE__)
+    |> name(__MODULE__)
     |> GenServer.cast({:set, int})
 
     CoffeeTimeFirmware.PubSub.broadcast(context, :boiler_duty_cycle, int)
@@ -26,10 +38,20 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     :ok
   end
 
+  @doc """
+  Trigger a maintenance mode where the boiler is always off. This overrides whatever
+  the current duty_cycle value is.
+
+  This value is persisted across reboots.
+  """
+  def set_maintenance_mode(context, val) when val in [:on, :off] do
+    context
+    |> name(__MODULE__)
+    |> GenServer.call({:set_maintenance_mode, val})
+  end
+
   def start_link(%{context: context} = params) do
-    GenServer.start_link(__MODULE__, params,
-      name: CoffeeTimeFirmware.Application.name(context, __MODULE__)
-    )
+    GenServer.start_link(__MODULE__, params, name: name(context, __MODULE__))
   end
 
   def init(%{context: context, intervals: %{__MODULE__ => %{write_interval: interval}}}) do
@@ -39,7 +61,8 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
     state = %__MODULE__{
       context: context,
       gpio: gpio,
-      write_interval: interval
+      write_interval: interval,
+      maintenance_mode: CubDB.get(db(context), @maintenance_mode_key) || :off
     }
 
     Util.send_after(self(), :tick, state.write_interval)
@@ -54,6 +77,12 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
   def terminate(reason, %{context: context, gpio: gpio}) do
     CoffeeTimeFirmware.Hardware.write_gpio(context.hardware, gpio, 0)
     {:stop, reason}
+  end
+
+  def handle_call({:set_maintenance_mode, arg}, _from, state) do
+    CubDB.put(db(state.context), @maintenance_mode_key, arg)
+    state = %{state | maintenance_mode: arg}
+    {:reply, :ok, state, {:continue, :cycle}}
   end
 
   def handle_cast({:set, int}, state) do
@@ -72,10 +101,15 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycle do
 
   def handle_continue(:cycle, state) do
     gpio_val =
-      if state.counter <= state.duty_cycle do
-        1
-      else
-        0
+      cond do
+        state.maintenance_mode == :on ->
+          0
+
+        state.counter <= state.duty_cycle ->
+          1
+
+        true ->
+          0
       end
 
     CoffeeTimeFirmware.Hardware.write_gpio(state.context.hardware, state.gpio, gpio_val)

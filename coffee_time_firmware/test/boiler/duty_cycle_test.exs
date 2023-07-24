@@ -87,6 +87,57 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
     end
   end
 
+  describe "maintenance mode" do
+    setup :setup_process
+
+    test "Maintenance mode means it's always off", %{context: context, pid: pid} do
+      Boiler.DutyCycle.set(context, 10)
+
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 1})
+
+      # Trigger maintenance mode
+      Boiler.DutyCycle.set_maintenance_mode(context, :on)
+
+      assert %{duty_cycle: 10} = :sys.get_state(pid)
+
+      # Even though the duty cycle is 10, we still get all 0
+      # writes because of maintenance mode
+      flush()
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 0})
+
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 0})
+
+      # Turning maintenance mode off returns the normal duty cycle
+
+      Boiler.DutyCycle.set_maintenance_mode(context, :off)
+
+      flush()
+
+      send(pid, :tick)
+      assert_receive({:write_gpio, :duty_cycle, 1})
+    end
+
+    test "maintenance mode persists through reboots", %{context: context, pid: pid} do
+      Boiler.DutyCycle.set_maintenance_mode(context, :on)
+
+      GenServer.stop(pid, :normal)
+
+      refute Process.alive?(pid)
+
+      # Wait for the new pid to come up
+      Process.sleep(100)
+
+      flush()
+
+      new_pid = lookup_pid(context, CoffeeTimeFirmware.Boiler.DutyCycle)
+
+      assert %{maintenance_mode: :on} = :sys.get_state(new_pid)
+    end
+  end
+
   def setup_process(%{context: context}) do
     {:ok, pid} =
       start_supervised({
@@ -102,5 +153,15 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
       })
 
     {:ok, %{context: context, pid: pid}}
+  end
+
+  defp flush() do
+    receive do
+      _msg ->
+        flush()
+    after
+      0 ->
+        :ok
+    end
   end
 end
