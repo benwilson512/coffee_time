@@ -21,8 +21,8 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
             target_duty_cycle: 0,
             hold_mode: :max,
             temp_backoff_timer: nil,
-            temp_backoff_offset: 8,
-            temp_backoff_duration: :timer.minutes(5)
+            temp_backoff_offset: 5,
+            temp_backoff_duration: :timer.minutes(2)
 
   def set_target_temp(context, temp) do
     context
