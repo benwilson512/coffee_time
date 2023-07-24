@@ -16,7 +16,13 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   alias CoffeeTimeFirmware.Boiler
   alias CoffeeTimeFirmware.Util
 
-  defstruct target_temperature: 0, context: nil, target_duty_cycle: 0
+  defstruct target_temperature: 0,
+            context: nil,
+            target_duty_cycle: 0,
+            hold_mode: :maintain,
+            temp_reheat_timer: nil,
+            temp_reheat_offset: 5,
+            temp_reheat_duration: :timer.minutes(2)
 
   def set_target_temp(context, temp) do
     context
@@ -115,11 +121,9 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
     data =
-      if val < prev_data.target_temperature do
-        %{prev_data | target_duty_cycle: 10}
-      else
-        %{prev_data | target_duty_cycle: 0}
-      end
+      prev_data
+      |> adjust_hold_mode(val)
+      |> adjust_target_duty_cycle(val)
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
       set_duty_cycle!(data)
@@ -128,7 +132,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:keep_state, data}
   end
 
-  # Fill level status
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, data) do
     case status do
       :full ->
@@ -137,6 +140,19 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
       :low ->
         {:next_state, :awaiting_boiler_fill, data}
     end
+  end
+
+  ## General Handlers
+  ##############################
+
+  def handle_event(:info, :reheat_complete, _, data) do
+    if timer = data.temp_reheat_timer do
+      Util.cancel_timer(timer)
+    end
+
+    data = %{data | hold_mode: :maintain, temp_reheat_timer: nil}
+
+    {:keep_state, data}
   end
 
   def handle_event(:enter, old_state, new_state, data) do
@@ -148,5 +164,47 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   defp set_duty_cycle!(%{target_duty_cycle: cycle, context: context}) do
     Logger.info("Changing duty cycle: #{cycle}")
     :ok = Boiler.DutyCycle.set(context, cycle)
+  end
+
+  def adjust_hold_mode(%{hold_mode: :reheat} = data, _) do
+    data
+  end
+
+  def adjust_hold_mode(data, value) do
+    reheat_threshold = data.target_temperature - data.temp_reheat_offset
+
+    if value < reheat_threshold do
+      %{data | hold_mode: :reheat}
+    else
+      data
+    end
+  end
+
+  def adjust_target_duty_cycle(data, value) do
+    if value < threshold(data) do
+      %{data | target_duty_cycle: 10}
+    else
+      data
+      |> Map.replace(:target_duty_cycle, 0)
+      |> maybe_set_reheat_timer()
+    end
+  end
+
+  def threshold(data) do
+    case data.hold_mode do
+      :maintain -> data.target_temperature
+      :reheat -> data.target_temperature - data.temp_reheat_offset
+    end
+  end
+
+  def maybe_set_reheat_timer(data) do
+    case data do
+      %{hold_mode: :reheat, temp_reheat_timer: nil} ->
+        timer = Util.send_after(self(), :reheat_complete, data.temp_reheat_duration)
+        %{data | temp_reheat_timer: timer}
+
+      _ ->
+        data
+    end
   end
 end

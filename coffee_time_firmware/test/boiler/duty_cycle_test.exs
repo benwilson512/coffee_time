@@ -154,14 +154,4 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
 
     {:ok, %{context: context, pid: pid}}
   end
-
-  defp flush() do
-    receive do
-      _msg ->
-        flush()
-    after
-      0 ->
-        :ok
-    end
-  end
 end

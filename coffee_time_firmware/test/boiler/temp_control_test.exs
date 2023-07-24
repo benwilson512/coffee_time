@@ -51,7 +51,7 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      Measurement.Store.put(context, :boiler_temp, 20)
+      Measurement.Store.put(context, :boiler_temp, 124)
       assert {:hold_temp, _} = :sys.get_state(name(context, TempControl))
       # Target temp is 128 but the current temp is 20, so we should be on
       # full power to get to temp.
@@ -64,6 +64,88 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
 
       TempControl.set_target_temp(context, 128)
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
+    end
+  end
+
+  describe "reheat process" do
+    setup :boot
+
+    test "low boiler temperature compared to the target temp triggers an initialization phase", %{
+      context: context
+    } do
+      # boilerplate
+      PubSub.subscribe(context, :boiler_duty_cycle)
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
+      # Set a high target temp, but then read a room temperature temp.
+      TempControl.set_target_temp(context, 121)
+      Measurement.Store.put(context, :boiler_temp, 34)
+
+      # This should kick us into the boiler temp reheat
+      assert {:hold_temp, %{hold_mode: :reheat}} = :sys.get_state(name(context, TempControl))
+
+      # After another reading confirming our temp in this state we should
+      # start heating
+      Measurement.Store.put(context, :boiler_temp, 34)
+      assert_receive({:broadcast, :boiler_duty_cycle, 10})
+
+      # Once we are more than the offset, we should turn off the boiler and start
+      # the timer
+      Measurement.Store.put(context, :boiler_temp, 116)
+      assert_receive({:broadcast, :boiler_duty_cycle, 0})
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_timer
+      assert state.hold_mode == :reheat
+
+      # If we drop below the reduced temp we still add heat, but the timer should not change
+      Measurement.Store.put(context, :boiler_temp, 115)
+      assert_receive({:broadcast, :boiler_duty_cycle, 10})
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_timer
+      assert state.hold_mode == :reheat
+
+      # Sending the booted message should kick us over to hold temp, and we shouldn't have the timer anymore.
+      send(lookup_pid(context, TempControl), :reheat_complete)
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      refute state.temp_reheat_timer
+      assert state.hold_mode == :maintain
+    end
+
+    test "reheat plays well with boiler fill", %{
+      context: context
+    } do
+      # boilerplate
+      PubSub.subscribe(context, :boiler_duty_cycle)
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
+      # Set a high target temp, but then read a room temperature temp.
+      TempControl.set_target_temp(context, 121)
+      Measurement.Store.put(context, :boiler_temp, 34)
+
+      # This should kick us into the boiler temp reheat
+      assert {:hold_temp, %{hold_mode: :reheat}} = :sys.get_state(name(context, TempControl))
+
+      # We've heated up nicely and the timer is kicked off to go to maintainance mode
+      Measurement.Store.put(context, :boiler_temp, 118)
+
+      assert {:hold_temp, %{temp_reheat_timer: timer}} =
+               :sys.get_state(name(context, TempControl))
+
+      assert timer
+
+      # But now the boiler is low and we need water.
+      Measurement.Store.put(context, :boiler_fill_status, :low)
+
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
+
+      # The timer goes off while we are filling the boiler
+      send(lookup_pid(context, TempControl), :reheat_complete)
+
+      flush()
+
+      # The hold mode should be adjusted
+      assert {:awaiting_boiler_fill, %{hold_mode: :maintain}} =
+               :sys.get_state(name(context, TempControl))
     end
   end
 
