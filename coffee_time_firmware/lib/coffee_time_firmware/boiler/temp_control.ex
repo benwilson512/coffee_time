@@ -132,7 +132,6 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     {:keep_state, data}
   end
 
-  # Fill level status
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, data) do
     case status do
       :full ->
@@ -143,14 +142,17 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
     end
   end
 
-  def handle_event(:info, :reheat_complete, :hold_temp, data) do
+  ## General Handlers
+  ##############################
+
+  def handle_event(:info, :reheat_complete, _, data) do
     if timer = data.temp_reheat_timer do
       Util.cancel_timer(timer)
     end
 
     data = %{data | hold_mode: :maintain, temp_reheat_timer: nil}
 
-    {:next_state, :hold_temp, data}
+    {:keep_state, data}
   end
 
   def handle_event(:enter, old_state, new_state, data) do

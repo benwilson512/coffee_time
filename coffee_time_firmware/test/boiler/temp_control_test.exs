@@ -110,6 +110,43 @@ defmodule CoffeeTimeFirmware.Boiler.TempControlTest do
       refute state.temp_reheat_timer
       assert state.hold_mode == :maintain
     end
+
+    test "reheat plays well with boiler fill", %{
+      context: context
+    } do
+      # boilerplate
+      PubSub.subscribe(context, :boiler_duty_cycle)
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
+      # Set a high target temp, but then read a room temperature temp.
+      TempControl.set_target_temp(context, 121)
+      Measurement.Store.put(context, :boiler_temp, 34)
+
+      # This should kick us into the boiler temp reheat
+      assert {:hold_temp, %{hold_mode: :reheat}} = :sys.get_state(name(context, TempControl))
+
+      # We've heated up nicely and the timer is kicked off to go to maintainance mode
+      Measurement.Store.put(context, :boiler_temp, 118)
+
+      assert {:hold_temp, %{temp_reheat_timer: timer}} =
+               :sys.get_state(name(context, TempControl))
+
+      assert timer
+
+      # But now the boiler is low and we need water.
+      Measurement.Store.put(context, :boiler_fill_status, :low)
+
+      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
+
+      # The timer goes off while we are filling the boiler
+      send(lookup_pid(context, TempControl), :reheat_complete)
+
+      flush()
+
+      # The hold mode should be adjusted
+      assert {:awaiting_boiler_fill, %{hold_mode: :maintain}} =
+               :sys.get_state(name(context, TempControl))
+    end
   end
 
   describe "post boot boiler refill" do

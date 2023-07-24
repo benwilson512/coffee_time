@@ -3,7 +3,7 @@ defmodule CoffeeTimeFirmware.ContextCase do
 
   using do
     quote do
-      import unquote(__MODULE__), only: [lookup_pid: 2]
+      import unquote(__MODULE__), only: [lookup_pid: 2, flush: 0]
       import CoffeeTimeFirmware.Application, only: [name: 2]
     end
   end
@@ -11,6 +11,16 @@ defmodule CoffeeTimeFirmware.ContextCase do
   def lookup_pid(context, name) do
     [{pid, _}] = Registry.lookup(context.registry, name)
     pid
+  end
+
+  def flush() do
+    receive do
+      _msg ->
+        flush()
+    after
+      0 ->
+        :ok
+    end
   end
 
   setup info do
