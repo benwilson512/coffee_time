@@ -169,7 +169,9 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   end
 
   def adjust_hold_mode(data, value) do
-    if data.target_temperature - value > 10 do
+    backoff_threshold = data.target_temperature - data.temp_backoff_offset
+
+    if value < backoff_threshold do
       %{data | hold_mode: :backoff}
     else
       data
