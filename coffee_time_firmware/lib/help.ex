@@ -11,6 +11,10 @@ defmodule Help do
     CoffeeTimeFirmware.Context.new(:rpi3)
   end
 
+  def trigger_maintenance_mode() do
+    CoffeeTimeFirmware.Boiler.DutyCycle.trigger_maintenance_mode(context())
+  end
+
   @programs [
     %CoffeeTimeFirmware.Barista.Program{
       name: :short_flush,
