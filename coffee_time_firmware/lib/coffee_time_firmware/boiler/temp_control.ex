@@ -200,11 +200,8 @@ defmodule CoffeeTimeFirmware.Boiler.TempControl do
   def maybe_set_reheat_timer(data) do
     case data do
       %{hold_mode: :reheat, temp_reheat_timer: nil} ->
-        %{
-          data
-          | temp_reheat_timer:
-              Util.send_after(self(), :reheat_complete, data.temp_reheat_duration)
-        }
+        timer = Util.send_after(self(), :reheat_complete, data.temp_reheat_duration)
+        %{data | temp_reheat_timer: timer}
 
       _ ->
         data
