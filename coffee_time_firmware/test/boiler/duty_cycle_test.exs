@@ -127,11 +127,11 @@ defmodule CoffeeTimeFirmware.Boiler.DutyCycleTest do
 
       refute Process.alive?(pid)
 
+      # Wait for the new pid to come up
       Process.sleep(100)
 
       flush()
 
-      # Wait for the new pid to come up
       new_pid = lookup_pid(context, CoffeeTimeFirmware.Boiler.DutyCycle)
 
       assert %{maintenance_mode: :on} = :sys.get_state(new_pid)
