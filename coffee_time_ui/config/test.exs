@@ -4,7 +4,7 @@ import Config
 # you can enable the server option below.
 config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "/C0GvgIf/cxKdabNnW5A5xqmMSWcu3ZnAO43PGjl8ebIjHmltzXVrP+qxXLJxJOw",
+  secret_key_base: "+m9yfebPIqPj9dW8UHb27REPtFmHuMXpflvsuLxuBU8KoSimYeYIcTD6w5aZXL5R",
   server: false
 
 # Print only warnings and errors during test

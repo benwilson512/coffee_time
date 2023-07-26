@@ -4,8 +4,8 @@ import Config
 # debugging and code reloading.
 #
 # The watchers configuration can be used to run external
-# watchers to your application. For example, we use it
-# with esbuild to bundle .js and .css sources.
+# watchers to your application. For example, we can use it
+# to bundle .js and .css sources.
 config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
@@ -13,7 +13,7 @@ config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "NgSg4NftGHZCNtf5mwQSwIODeRzqgebuAPV+ui2kQGj/2AFubaf8Vb6v9aiJD5d7",
+  secret_key_base: "hNXwHdGGE5mNI4CFwHUPJTA9/8rImmSDmxSGka90qT+BO0N2sXZvt6MOZ2vp8MjT",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
@@ -48,8 +48,7 @@ config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/coffee_time_ui_web/(live|views)/.*(ex)$",
-      ~r"lib/coffee_time_ui_web/templates/.*(eex)$"
+      ~r"lib/coffee_time_ui_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
 

@@ -39,7 +39,6 @@ defmodule CoffeeTimeUiWeb do
   def controller do
     quote do
       use Phoenix.Controller,
-        namespace: CoffeeTimeUiWeb,
         formats: [:html, :json],
         layouts: [html: CoffeeTimeUiWeb.Layouts]
 

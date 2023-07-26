@@ -24,16 +24,10 @@ config :nerves, :firmware, rootfs_overlay: "rootfs_overlay", fwup_conf: "config/
 
 config :nerves, source_date_epoch: "1668309865"
 
-# config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint, server: true
-
 if Mix.target() == :host do
   import_config "host.exs"
 else
   import_config "target.exs"
-end
-
-if Mix.env() != :test do
-  import_config("../../coffee_time_ui/config/config.exs")
 end
 
 import_config "./#{Mix.env()}.exs"

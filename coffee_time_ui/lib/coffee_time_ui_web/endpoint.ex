@@ -7,7 +7,7 @@ defmodule CoffeeTimeUiWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_coffee_time_ui_key",
-    signing_salt: "AhCCjj/Z",
+    signing_salt: "3umb/1ce",
     same_site: "Lax"
   ]
 
