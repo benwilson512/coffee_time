@@ -1,0 +1,6 @@
+<div class="grid grid-cols-4 gap-4">
+  <div :for={item <- ["single", "double", "clean", "cool"]} class="bg-amber-900 rounded px-2 py-8">
+    <.icon name="hero-play-solid" />
+    <%= item %>
+  </div>
+</div>

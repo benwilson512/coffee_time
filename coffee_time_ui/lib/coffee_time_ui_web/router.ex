@@ -17,7 +17,7 @@ defmodule CoffeeTimeUiWeb.Router do
   scope "/", CoffeeTimeUiWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", Pages.Index, :index, as: :pages_root
   end
 
   # Other scopes may use custom stacks.

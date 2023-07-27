@@ -49,6 +49,7 @@ defmodule CoffeeTimeFirmware.MixProject do
       {:circuits_gpio, "~> 1.0"},
       {:circuits_spi, "~> 1.3"},
       {:max31865, "~> 0.1.0", github: "benwilson512/max31865"},
+      {:coffee_time_ui, path: "../coffee_time_ui", targets: @all_targets, env: Mix.env()},
 
       # Dependencies for all targets except :host
       {:nerves_runtime, "~> 0.13.0", targets: @all_targets},
