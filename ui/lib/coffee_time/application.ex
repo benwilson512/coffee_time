@@ -9,7 +9,15 @@ defmodule CoffeeTime.Application do
 
     context = CoffeeTime.Context.new(target())
 
-    children = children(context, Application.get_env(:coffee_time, :run))
+    children =
+      children(context, Application.get_env(:coffee_time, :run)) ++
+        [
+          CoffeeTimeWeb.Telemetry,
+          # Start the PubSub system
+          {Phoenix.PubSub, name: CoffeeTime.PubSub},
+          # Start the Endpoint (http/https)
+          CoffeeTimeWeb.Endpoint
+        ]
 
     Supervisor.start_link(children, opts)
   end
@@ -68,5 +76,13 @@ defmodule CoffeeTime.Application do
 
   def target() do
     Application.get_env(:coffee_time, :target)
+  end
+
+  # Tell Phoenix to update the endpoint configuration
+  # whenever the application is updated.
+  @impl true
+  def config_change(changed, _new, removed) do
+    CoffeeTimeWeb.Endpoint.config_change(changed, removed)
+    :ok
   end
 end

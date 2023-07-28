@@ -23,7 +23,7 @@ erl_crash.dump
 /tmp/
 
 # Ignore package tarball (built via "mix hex.build").
-coffee_time_ui-*.tar
+coffee_time-*.tar
 
 # Ignore assets that are produced by build tools.
 /priv/static/

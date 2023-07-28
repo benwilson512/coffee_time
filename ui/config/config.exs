@@ -12,13 +12,13 @@ config :coffee_time, target: :host, run: true
 config :coffee_time, timezone: "America/New_York"
 
 # Configures the endpoint
-config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
+config :coffee_time, CoffeeTimeWeb.Endpoint,
   url: [host: "localhost"],
   render_errors: [
-    formats: [html: CoffeeTimeUiWeb.ErrorHTML, json: CoffeeTimeUiWeb.ErrorJSON],
+    formats: [html: CoffeeTimeWeb.ErrorHTML, json: CoffeeTimeWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: CoffeeTimeUi.PubSub,
+  pubsub_server: CoffeeTime.PubSub,
   live_view: [signing_salt: "F5zv73W1"]
 
 # Configure esbuild (the version is required)

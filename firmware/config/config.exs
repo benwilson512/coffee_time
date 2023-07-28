@@ -29,6 +29,6 @@ else
   import_config "target.exs"
 end
 
-config :coffee_time_ui, dev_routes: true
+config :coffee_time, dev_routes: true
 
 import_config "./#{Mix.env()}.exs"

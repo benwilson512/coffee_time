@@ -111,7 +111,7 @@ config :mdns_lite,
     }
   ]
 
-config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint, server: true
+config :coffee_time, CoffeeTimeWeb.Endpoint, server: true
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
@@ -129,7 +129,7 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
+  config :coffee_time, CoffeeTimeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -142,14 +142,14 @@ if config_env() == :prod do
     secret_key_base: secret_key_base
 end
 
-config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
+config :coffee_time, CoffeeTimeWeb.Endpoint,
   url: [host: "coffee.local"],
   http: [port: 80],
   cache_static_manifest: "priv/static/cache_manifest.json",
   secret_key_base: "HEY05EB1dFVSu6KykKHuS4rQPQzSHv4F7mGVB/gnDLrIu75wE/ytBXy2TaL3A6RA",
   live_view: [signing_salt: "AAAABjEyERMkxgDh"],
   check_origin: false,
-  render_errors: [view: CoffeeTimeUiWeb.ErrorView, accepts: ~w(html json), layout: false],
+  render_errors: [view: CoffeeTimeWeb.ErrorView, accepts: ~w(html json), layout: false],
   pubsub_server: Ui.PubSub,
   # Start the server since we're running in a release instead of through `mix`
   server: true,

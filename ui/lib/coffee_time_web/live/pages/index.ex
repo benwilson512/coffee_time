@@ -1,5 +1,5 @@
-defmodule CoffeeTimeUiWeb.Pages.Index do
-  use CoffeeTimeUiWeb, :live_view
+defmodule CoffeeTimeWeb.Pages.Index do
+  use CoffeeTimeWeb, :live_view
 
   alias CoffeeTime.Measurement
 

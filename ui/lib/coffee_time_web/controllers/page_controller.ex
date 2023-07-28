@@ -1,5 +1,5 @@
-defmodule CoffeeTimeUiWeb.PageController do
-  use CoffeeTimeUiWeb, :controller
+defmodule CoffeeTimeWeb.PageController do
+  use CoffeeTimeWeb, :controller
 
   def home(conn, _params) do
     # The home page is often custom made,

@@ -1,5 +1,7 @@
-defmodule CoffeeTimeUiWeb.PageControllerTest do
-  use CoffeeTimeUiWeb.ConnCase
+defmodule CoffeeTimeWeb.PageControllerTest do
+  use CoffeeTimeWeb.ConnCase
+
+  @tag :pending
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")

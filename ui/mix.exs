@@ -1,9 +1,9 @@
-defmodule CoffeeTimeUi.MixProject do
+defmodule CoffeeTime.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :coffee_time_ui,
+      app: :coffee_time,
       version: "0.1.0",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -18,7 +18,7 @@ defmodule CoffeeTimeUi.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {CoffeeTimeUi.Application, []},
+      mod: {CoffeeTime.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -45,8 +45,22 @@ defmodule CoffeeTimeUi.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
-      {:plug_cowboy, "~> 2.5"},
-      {:coffee_time, path: "../core", env: Mix.env(), only: [:dev, :test]}
+      {:plug_cowboy, "~> 2.5"}
+    ] ++ nerves_deps()
+  end
+
+  defp nerves_deps() do
+    [
+      {:quantum, "~> 3.5"},
+      {:compare_chain, ">= 0.0.0"},
+      {:cubdb, "~> 2.0"},
+      {:briefly, ">= 0.0.0", only: :test, optional: true},
+      {:gen_state_machine, "~> 3.0"},
+      # Dependencies for all targets
+      {:circuits_gpio, "~> 1.0"},
+      {:circuits_spi, "~> 1.3"},
+      {:max31865, "~> 0.1.0", github: "benwilson512/max31865"},
+      {:nerves_time_zones, "~> 0.3.0"}
     ]
   end
 

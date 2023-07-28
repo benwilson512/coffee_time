@@ -6,7 +6,7 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
+config :coffee_time, CoffeeTimeWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
@@ -43,17 +43,17 @@ config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
+config :coffee_time, CoffeeTimeWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/coffee_time_ui_web/(controllers|live|components)/.*(ex|heex)$"
+      ~r"lib/coffee_time_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :coffee_time_ui, dev_routes: true
+config :coffee_time, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"

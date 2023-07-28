@@ -1,4 +1,4 @@
-# CoffeeTimeUi
+# CoffeeTime
 
 To start your Phoenix server:
 

@@ -1,12 +1,12 @@
-defmodule CoffeeTimeUiWeb do
+defmodule CoffeeTimeWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use CoffeeTimeUiWeb, :controller
-      use CoffeeTimeUiWeb, :html
+      use CoffeeTimeWeb, :controller
+      use CoffeeTimeWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -40,10 +40,10 @@ defmodule CoffeeTimeUiWeb do
     quote do
       use Phoenix.Controller,
         formats: [:html, :json],
-        layouts: [html: CoffeeTimeUiWeb.Layouts]
+        layouts: [html: CoffeeTimeWeb.Layouts]
 
       import Plug.Conn
-      import CoffeeTimeUiWeb.Gettext
+      import CoffeeTimeWeb.Gettext
 
       unquote(verified_routes())
     end
@@ -52,7 +52,7 @@ defmodule CoffeeTimeUiWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {CoffeeTimeUiWeb.Layouts, :app}
+        layout: {CoffeeTimeWeb.Layouts, :app}
 
       unquote(html_helpers())
     end
@@ -84,8 +84,8 @@ defmodule CoffeeTimeUiWeb do
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components and translation
-      import CoffeeTimeUiWeb.CoreComponents
-      import CoffeeTimeUiWeb.Gettext
+      import CoffeeTimeWeb.CoreComponents
+      import CoffeeTimeWeb.Gettext
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
@@ -98,9 +98,9 @@ defmodule CoffeeTimeUiWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: CoffeeTimeUiWeb.Endpoint,
-        router: CoffeeTimeUiWeb.Router,
-        statics: CoffeeTimeUiWeb.static_paths()
+        endpoint: CoffeeTimeWeb.Endpoint,
+        router: CoffeeTimeWeb.Router,
+        statics: CoffeeTimeWeb.static_paths()
     end
   end
 
