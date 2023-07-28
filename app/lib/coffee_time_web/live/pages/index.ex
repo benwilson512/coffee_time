@@ -37,4 +37,12 @@ defmodule CoffeeTimeWeb.Pages.Index do
   def handle_info({:broadcast, key, value}, socket) when key in [:boiler_temp, :cpu_temp] do
     {:noreply, assign(socket, key, to_string(trunc(value)))}
   end
+
+  def format_name(program) do
+    program.name
+    |> to_string
+    |> String.split("_")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join(" ")
+  end
 end
