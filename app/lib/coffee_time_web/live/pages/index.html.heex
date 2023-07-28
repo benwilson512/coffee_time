@@ -1,0 +1,10 @@
+<div class="grid grid-cols-4 gap-4">
+  <div
+    :for={program <- @programs}
+    phx-click={JS.push("run", value: %{program: program.name})}
+    class="bg-citrine-brown rounded px-2 py-8"
+  >
+    <.icon name="hero-play-solid" />
+    <%= program.name %>
+  </div>
+</div>

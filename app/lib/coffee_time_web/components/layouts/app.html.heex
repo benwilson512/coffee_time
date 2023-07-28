@@ -1,0 +1,30 @@
+<header class="dark:bg-milk-chocolate px-4 sm:px-6 lg:px-8">
+  <div class="flex items-center justify-between py-3 text-sm">
+    <div class="flex items-center gap-4">
+      <a href="/">
+        <img
+          src="https://cdn.pixabay.com/photo/2014/11/27/12/24/coffee-547490_1280.png"
+          width="36"
+        />
+      </a>
+      <p class="bg-pastel-gray-700 text-brand rounded-full px-2 font-medium leading-6">
+        Coffee Time
+      </p>
+    </div>
+    <div class="flex items-center gap-2 font-semibold leading-6 text-zinc-900">
+      <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
+        <.icon name="hero-cpu-chip-mini" /> <%= @cpu_temp %>°C
+      </span>
+      <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
+        <.icon name="hero-cloud-mini" /> <%= @boiler_temp %>°C
+      </span>
+    </div>
+  </div>
+</header>
+<main class="flex h-screen">
+  <%!-- <aside class="dark:bg-black-bean h-screen px-2"><.icon name="hero-forward-solid" /></aside> --%>
+  <div class="px-4 py-4 w-screen">
+    <.flash_group flash={@flash} />
+    <%= @inner_content %>
+  </div>
+</main>
