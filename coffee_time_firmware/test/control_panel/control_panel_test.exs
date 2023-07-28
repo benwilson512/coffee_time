@@ -7,6 +7,7 @@ defmodule CoffeeTimeFirmware.ControlPanelTest do
   alias CoffeeTimeFirmware.Watchdog
   alias CoffeeTimeFirmware.ControlPanel
   alias CoffeeTimeFirmware.Barista
+  alias CoffeeTimeFirmware.Hydraulics
 
   @moduletag :measurement_store
   @moduletag :watchdog
@@ -69,10 +70,13 @@ defmodule CoffeeTimeFirmware.ControlPanelTest do
 
     test "message from barista displays the right LED", %{context: context} do
       :ok =
-        Barista.run_program(context, %Barista.Program{name: :foo, steps: [{:hydraulics, :halt}]})
+        Barista.run_program(context, %Barista.Program{
+          name: :foo,
+          steps: [{:solenoid, :grouphead, :open}, {:hydraulics, :halt}]
+        })
 
       # things shouldn't blow up.
-      Process.sleep(100)
+      :sys.get_state(name(context, Barista))
     end
   end
 
@@ -87,6 +91,8 @@ defmodule CoffeeTimeFirmware.ControlPanelTest do
   end
 
   defp boot_barista(%{context: context}) do
+    start_supervised!({Hydraulics, %{context: context}})
+    CoffeeTimeFirmware.Measurement.Store.put(context, :boiler_fill_status, :full)
     start_supervised!({Barista, %{context: context}})
 
     :ok
