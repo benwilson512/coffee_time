@@ -17,7 +17,9 @@ defmodule CoffeeTimeUiWeb.Router do
   scope "/", CoffeeTimeUiWeb do
     pipe_through :browser
 
-    live "/", Pages.Index, :index, as: :pages_root
+    live_session :default do
+      live "/", Pages.Index, :index, as: :pages_root
+    end
   end
 
   # Other scopes may use custom stacks.

@@ -15,7 +15,39 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: "#FD4F00",
+        // coffee cup
+        'dark-gold': "#9F683A",
+        'milk-chocolate': "#7F5234",
+        'pastel-gray': {
+          'DEFAULT': "#DACFBF",
+          '100': "#DED4C5",
+          '200': "#E1D9CC",
+          '300': "#E5DDD2",
+          '400': "#E9E2D9",
+          '500': "#EDE7DF",
+          '600': "#F0ECE5",
+          '700': "#F4F1EC",
+          '800': "#F8F5F2",
+          '900': "#FBFAF9",
+        },
+        'cafe-noir': "#51331F",
+        'grullo': "#AC8D83",
+        'dark-chestnut': "#8B6B62",
+        // ristreto
+        'root-beer': '#1F0E04',
+        'black-bean': '#431307',
+        'citrine-brown': '#932C0D',
+        'very-pale-orange': '#FCE4BE',
+        'cadmium-orange': '#ED7B35',
+        // romantic
+        'dark-brown-tangelo': "#8B6748",
+        'crayolas-gold': '#ECBA9C',
+        'tumbleweed': '#E6B08D',
+        'royal-brown': '#56382B',
+        'salmon': '#F48472',
+        'jelly-bean': '#DE5F46',
+        // aliases
+        brand: "#DE5F46"
       }
     },
   },
