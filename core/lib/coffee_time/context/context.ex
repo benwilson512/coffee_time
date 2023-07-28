@@ -26,7 +26,8 @@ defmodule CoffeeTime.Context do
       registry: CoffeeTime.Registry,
       pubsub: CoffeeTime.PubSub,
       hardware: %CoffeeTime.Hardware.Host{},
-      data_dir: :code.priv_dir(:coffee_time)
+      data_dir: :code.priv_dir(:coffee_time),
+      root: true
     }
   end
 

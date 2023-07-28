@@ -7,6 +7,10 @@
 # General application configuration
 import Config
 
+config :coffee_time, target: :host, run: true
+
+config :coffee_time, timezone: "America/New_York"
+
 # Configures the endpoint
 config :coffee_time_ui, CoffeeTimeUiWeb.Endpoint,
   url: [host: "localhost"],

@@ -51,7 +51,7 @@ defmodule CoffeeTime.Barista do
     context
     |> db
     |> CubDB.select(min_key: {:program, 1}, max_key: {:program, {}})
-    |> Enum.to_list()
+    |> Enum.map(fn {_, program} -> program end)
   end
 
   @doc """
