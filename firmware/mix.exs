@@ -34,8 +34,8 @@ defmodule CoffeeTimeFirmware.MixProject do
       {:shoehorn, "~> 0.9.1"},
       {:ring_logger, "~> 0.10.0"},
       {:toolshed, "~> 0.3.0"},
-      {:coffee_time_ui, path: "../coffee_time_ui", targets: @all_targets, env: Mix.env()},
-      {:coffee_time, path: "../coffee_time_core", targets: @all_targets, env: Mix.env()},
+      {:coffee_time_ui, path: "../ui", targets: @all_targets, env: Mix.env()},
+      {:coffee_time, path: "../core", targets: @all_targets, env: Mix.env()},
 
       # Dependencies for all targets except :host
       {:nerves_runtime, "~> 0.13.0", targets: @all_targets},

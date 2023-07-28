@@ -16,7 +16,7 @@ defmodule CoffeeTime.Context do
   @type t() :: %__MODULE__{
           registry: atom(),
           pubsub: atom(),
-          hardware: module()
+          hardware: any()
         }
 
   # some of these functions should probably get moved to regular config.

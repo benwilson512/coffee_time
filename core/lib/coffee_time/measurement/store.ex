@@ -10,6 +10,7 @@ defmodule CoffeeTime.Measurement.Store do
   """
 
   alias CoffeeTime.PubSub
+  alias CoffeeTime.Context
 
   use GenServer
 
@@ -34,8 +35,8 @@ defmodule CoffeeTime.Measurement.Store do
   Mostly just a pass through to PubSub.subscribe/2 but it gives us a bit more flexibility to change
   the message shape later, and it gives us a typespec which will help enforce correctness
   """
-  @spec subscribe(CoffeeTime.Context.t(), known_measurement()) :: :ok
-  def subscribe(context, key) do
+  # @spec subscribe(CoffeeTime.Context.t(), known_measurement()) :: :ok
+  def subscribe(%Context{} = context, key) do
     PubSub.subscribe(context, key)
     :ok
   end

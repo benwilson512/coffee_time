@@ -13,10 +13,10 @@
     </div>
     <div class="flex items-center gap-2 font-semibold leading-6 text-zinc-900">
       <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
-        <.icon name="hero-cpu-chip-mini" /> 55°C
+        <.icon name="hero-cpu-chip-mini" /> <%= @cpu_temp %>°C
       </span>
       <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
-        <.icon name="hero-cloud-mini" /> 121°C
+        <.icon name="hero-cloud-mini" /> <%= @boiler_temp %>°C
       </span>
     </div>
   </div>
