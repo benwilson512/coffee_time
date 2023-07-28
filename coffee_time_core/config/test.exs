@@ -1,5 +1,5 @@
 import Config
 
-config :coffee_time_firmware, run: false
+config :coffee_time, run: false
 
 config :logger, level: :warning

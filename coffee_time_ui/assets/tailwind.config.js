@@ -15,7 +15,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // coffee cup
+        // coffee cup https://www.schemecolor.com/coffee-cup.php
         'dark-gold': "#9F683A",
         'milk-chocolate': "#7F5234",
         'pastel-gray': {
@@ -33,13 +33,13 @@ module.exports = {
         'cafe-noir': "#51331F",
         'grullo': "#AC8D83",
         'dark-chestnut': "#8B6B62",
-        // ristreto
+        // ristretto https://www.schemecolor.com/ristretto.php
         'root-beer': '#1F0E04',
         'black-bean': '#431307',
         'citrine-brown': '#932C0D',
         'very-pale-orange': '#FCE4BE',
         'cadmium-orange': '#ED7B35',
-        // romantic
+        // romantic https://www.schemecolor.com/romantic-coffee-color-scheme.php
         'dark-brown-tangelo': "#8B6748",
         'crayolas-gold': '#ECBA9C',
         'tumbleweed': '#E6B08D',
