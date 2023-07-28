@@ -115,7 +115,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
       {:next_state, {:watching, %{ref: ref, timestamp: timestamp, program: program}}, data}
     else
       nil ->
-        Logger.warn("""
+        Logger.warning("""
         No button action defined for #{inspect(logical_button)} (GPIO:#{inspect(ref)})
         """)
 
@@ -131,7 +131,7 @@ defmodule CoffeeTimeFirmware.ControlPanel do
   end
 
   def handle_event(:info, {:circuits_gpio, ref, _, val}, {:press, _, _}, _) do
-    Logger.warn("Ignoring press from GPIO #{inspect(ref)} #{inspect(val)}")
+    Logger.warning("Ignoring press from GPIO #{inspect(ref)} #{inspect(val)}")
     :keep_state_and_data
   end
 
