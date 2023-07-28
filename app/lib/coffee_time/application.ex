@@ -14,7 +14,7 @@ defmodule CoffeeTime.Application do
         [
           CoffeeTimeWeb.Telemetry,
           # Start the PubSub system
-          {Phoenix.PubSub, name: CoffeeTime.PubSub},
+          {Phoenix.PubSub, name: CoffeeTimeWeb.PubSub},
           # Start the Endpoint (http/https)
           CoffeeTimeWeb.Endpoint
         ]

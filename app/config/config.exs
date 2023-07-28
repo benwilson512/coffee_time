@@ -18,7 +18,7 @@ config :coffee_time, CoffeeTimeWeb.Endpoint,
     formats: [html: CoffeeTimeWeb.ErrorHTML, json: CoffeeTimeWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: CoffeeTime.PubSub,
+  pubsub_server: CoffeeTimeWeb.PubSub,
   live_view: [signing_salt: "F5zv73W1"]
 
 # Configure esbuild (the version is required)
