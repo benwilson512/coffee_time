@@ -33,7 +33,7 @@ defmodule CoffeeTime.MixProject do
       {:compare_chain, ">= 0.0.0"},
       {:cubdb, "~> 2.0"},
       {:jason, ">= 0.0.0"},
-      {:briefly, ">= 0.0.0", only: :test},
+      {:briefly, ">= 0.0.0", only: :test, optional: true},
       {:gen_state_machine, "~> 3.0"},
       # Dependencies for all targets
       {:circuits_gpio, "~> 1.0"},
