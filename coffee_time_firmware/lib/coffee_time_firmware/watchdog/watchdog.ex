@@ -364,7 +364,7 @@ defmodule CoffeeTimeFirmware.Watchdog do
 
       {allowance, allowances} ->
         if allowance.owner != from_pid do
-          Logger.warn("""
+          Logger.warning("""
           Allowance removed by different pid.
           Owner: #{inspect(allowance.owner)}
           Caller pid: #{inspect(from_pid)}
