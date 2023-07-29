@@ -22,7 +22,7 @@ defmodule CoffeeTime.Boiler.DutyCycle do
     maintenance_mode: :off
   ]
 
-  @maintenance_mode_key {__MODULE__, :maintenance_mode}
+  @maintenance_mode_key {:duty_cycle, :maintenance_mode}
 
   def set(context, int) when int in 0..10 do
     Logger.info("""
