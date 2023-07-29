@@ -145,6 +145,12 @@ end
 config :coffee_time, CoffeeTimeWeb.Endpoint,
   url: [host: "coffee.local"],
   http: [port: 80],
+  https: [
+    port: 443,
+    cipher_suite: :strong,
+    certfile: "priv/cert/selfsigned.pem",
+    keyfile: "priv/cert/selfsigned_key.pem"
+  ],
   cache_static_manifest: "priv/static/cache_manifest.json",
   secret_key_base: "HEY05EB1dFVSu6KykKHuS4rQPQzSHv4F7mGVB/gnDLrIu75wE/ytBXy2TaL3A6RA",
   live_view: [signing_salt: "AAAABjEyERMkxgDh"],
