@@ -111,6 +111,37 @@ defmodule CoffeeTime.Boiler.TempControlTest do
       assert state.hold_mode == :maintain
     end
 
+    test "reheat auto adjusts up", %{context: context} do
+      # boilerplate
+      PubSub.subscribe(context, :boiler_duty_cycle)
+      Measurement.Store.put(context, :boiler_fill_status, :full)
+
+      # Set a high target temp, but then read a room temperature temp.
+      TempControl.set_target_temp(context, 121)
+      Measurement.Store.put(context, :boiler_temp, 34)
+
+      assert {:hold_temp, %{hold_mode: :reheat} = state} =
+               :sys.get_state(name(context, TempControl))
+
+      assert state.temp_reheat_offset == 5
+
+      # Once we are more than the offset, we should turn off the boiler and start
+      # the timer
+      Measurement.Store.put(context, :boiler_temp, 117)
+      assert_receive({:broadcast, :boiler_duty_cycle, 0})
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_timer
+      assert state.hold_mode == :reheat
+      assert state.temp_reheat_offset == 4
+
+      # get to full temp
+      Measurement.Store.put(context, :boiler_temp, 121)
+
+      # we should no longer be in reheat mode
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.hold_mode == :maintain
+    end
+
     test "reheat plays well with boiler fill", %{
       context: context
     } do

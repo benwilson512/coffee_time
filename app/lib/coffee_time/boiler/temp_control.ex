@@ -16,12 +16,14 @@ defmodule CoffeeTime.Boiler.TempControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
+  @default_reheat_offset 5
+
   defstruct target_temperature: 0,
             context: nil,
             target_duty_cycle: 0,
             hold_mode: :maintain,
             temp_reheat_timer: nil,
-            temp_reheat_offset: 5,
+            temp_reheat_offset: @default_reheat_offset,
             temp_reheat_duration: :timer.minutes(2)
 
   def set_target_temp(context, temp) do
@@ -68,6 +70,8 @@ defmodule CoffeeTime.Boiler.TempControl do
   ## General Commands
 
   def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
+    Logger.info("Setting target temp: #{temp}")
+
     {response, data} =
       if temp < 128 do
         CubDB.put(name(data.context, :db), :target_temp, temp)
@@ -146,13 +150,7 @@ defmodule CoffeeTime.Boiler.TempControl do
   ##############################
 
   def handle_event(:info, :reheat_complete, _, data) do
-    if timer = data.temp_reheat_timer do
-      Util.cancel_timer(timer)
-    end
-
-    data = %{data | hold_mode: :maintain, temp_reheat_timer: nil}
-
-    {:keep_state, data}
+    {:keep_state, switch_to_maintain(data)}
   end
 
   def handle_event(:enter, old_state, new_state, data) do
@@ -166,8 +164,20 @@ defmodule CoffeeTime.Boiler.TempControl do
     :ok = Boiler.DutyCycle.set(context, cycle)
   end
 
-  def adjust_hold_mode(%{hold_mode: :reheat} = data, _) do
-    data
+  def adjust_hold_mode(%{hold_mode: :reheat} = data, value) do
+    cond do
+      # We are fully heated up, so switch out of reheat mode
+      value >= data.target_temperature ->
+        switch_to_maintain(data)
+
+      # we are coasting up closer to the target temp so adjust the offset
+      data.target_temperature - value < data.temp_reheat_offset ->
+        new_offset = min(data.target_temperature - value + 0.25, data.temp_reheat_offset)
+        %{data | temp_reheat_offset: new_offset}
+
+      true ->
+        data
+    end
   end
 
   def adjust_hold_mode(data, value) do
@@ -206,5 +216,18 @@ defmodule CoffeeTime.Boiler.TempControl do
       _ ->
         data
     end
+  end
+
+  defp switch_to_maintain(data) do
+    if timer = data.temp_reheat_timer do
+      Util.cancel_timer(timer)
+    end
+
+    %{
+      data
+      | hold_mode: :maintain,
+        temp_reheat_timer: nil,
+        temp_reheat_offset: @default_reheat_offset
+    }
   end
 end
