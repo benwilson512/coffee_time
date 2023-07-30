@@ -70,6 +70,8 @@ defmodule CoffeeTime.Boiler.TempControl do
   ## General Commands
 
   def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
+    Logger.info("Setting target temp: #{temp}")
+
     {response, data} =
       if temp < 128 do
         CubDB.put(name(data.context, :db), :target_temp, temp)
@@ -170,7 +172,8 @@ defmodule CoffeeTime.Boiler.TempControl do
 
       # we are coasting up closer to the target temp so adjust the offset
       data.target_temperature - value < data.temp_reheat_offset ->
-        %{data | temp_reheat_offset: data.target_temperature - value}
+        new_offset = min(data.target_temperature - value + 0.25, data.temp_reheat_offset)
+        %{data | temp_reheat_offset: new_offset}
 
       true ->
         data
