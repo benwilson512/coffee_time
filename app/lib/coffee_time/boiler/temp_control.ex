@@ -16,15 +16,16 @@ defmodule CoffeeTime.Boiler.TempControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
-  @default_reheat_offset 5
+  @default_reheat_offset_c -5
+  @reheat_increment_c 0.5
 
   defstruct target_temperature: 0,
             context: nil,
             target_duty_cycle: 0,
             hold_mode: :maintain,
             temp_reheat_timer: nil,
-            temp_reheat_offset: @default_reheat_offset,
-            temp_reheat_duration: :timer.minutes(2)
+            temp_reheat_offset: @default_reheat_offset_c,
+            temp_reheat_iteration: :timer.seconds(10)
 
   def set_target_temp(context, temp) do
     context
@@ -149,8 +150,22 @@ defmodule CoffeeTime.Boiler.TempControl do
   ## General Handlers
   ##############################
 
-  def handle_event(:info, :reheat_complete, _, data) do
-    {:keep_state, switch_to_maintain(data)}
+  def handle_event(:info, {:reheat_increment, increment}, _, data) do
+    data =
+      data
+      |> Map.update!(:temp_reheat_offset, fn offset ->
+        min(offset + increment, 0)
+      end)
+      |> cancel_reheat_timer
+      |> case do
+        %{temp_reheat_offset: offset} = data when offset == 0 ->
+          switch_to_maintain(data)
+
+        data ->
+          maybe_set_reheat_timer(data)
+      end
+
+    {:keep_state, data}
   end
 
   def handle_event(:enter, old_state, new_state, data) do
@@ -170,10 +185,8 @@ defmodule CoffeeTime.Boiler.TempControl do
       value >= data.target_temperature ->
         switch_to_maintain(data)
 
-      # we are coasting up closer to the target temp so adjust the offset
-      data.target_temperature - value < data.temp_reheat_offset ->
-        new_offset = min(data.target_temperature - value + 0.25, data.temp_reheat_offset)
-        %{data | temp_reheat_offset: new_offset}
+      data.temp_reheat_offset == 0 ->
+        switch_to_maintain(data)
 
       true ->
         data
@@ -181,9 +194,11 @@ defmodule CoffeeTime.Boiler.TempControl do
   end
 
   def adjust_hold_mode(data, value) do
-    reheat_threshold = data.target_temperature - data.temp_reheat_offset
+    if value < offset_threshold(data) do
+      Logger.notice("""
+      Boiler entering reheat mode.
+      """)
 
-    if value < reheat_threshold do
       %{data | hold_mode: :reheat}
     else
       data
@@ -203,14 +218,24 @@ defmodule CoffeeTime.Boiler.TempControl do
   def threshold(data) do
     case data.hold_mode do
       :maintain -> data.target_temperature
-      :reheat -> data.target_temperature - data.temp_reheat_offset
+      :reheat -> offset_threshold(data)
     end
+  end
+
+  defp offset_threshold(data) do
+    data.target_temperature + data.temp_reheat_offset
   end
 
   def maybe_set_reheat_timer(data) do
     case data do
       %{hold_mode: :reheat, temp_reheat_timer: nil} ->
-        timer = Util.send_after(self(), :reheat_complete, data.temp_reheat_duration)
+        timer =
+          Util.send_after(
+            self(),
+            {:reheat_increment, @reheat_increment_c},
+            data.temp_reheat_iteration
+          )
+
         %{data | temp_reheat_timer: timer}
 
       _ ->
@@ -218,16 +243,21 @@ defmodule CoffeeTime.Boiler.TempControl do
     end
   end
 
-  defp switch_to_maintain(data) do
+  defp cancel_reheat_timer(data) do
     if timer = data.temp_reheat_timer do
       Util.cancel_timer(timer)
     end
 
+    %{data | temp_reheat_timer: nil}
+  end
+
+  defp switch_to_maintain(data) do
+    data = cancel_reheat_timer(data)
+
     %{
       data
       | hold_mode: :maintain,
-        temp_reheat_timer: nil,
-        temp_reheat_offset: @default_reheat_offset
+        temp_reheat_offset: @default_reheat_offset_c
     }
   end
 end

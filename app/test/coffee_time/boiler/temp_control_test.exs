@@ -104,8 +104,8 @@ defmodule CoffeeTime.Boiler.TempControlTest do
       assert state.temp_reheat_timer
       assert state.hold_mode == :reheat
 
-      # Sending the booted message should kick us over to hold temp, and we shouldn't have the timer anymore.
-      send(lookup_pid(context, TempControl), :reheat_complete)
+      # increment the offset all the way. This should kick us into maintain mode
+      send(lookup_pid(context, TempControl), {:reheat_increment, 5})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
       refute state.temp_reheat_timer
       assert state.hold_mode == :maintain
@@ -123,27 +123,24 @@ defmodule CoffeeTime.Boiler.TempControlTest do
       assert {:hold_temp, %{hold_mode: :reheat} = state} =
                :sys.get_state(name(context, TempControl))
 
-      assert state.temp_reheat_offset == 5
+      assert state.temp_reheat_offset == -5
 
       # Once we are more than the offset, we should turn off the boiler and start
       # the timer
       Measurement.Store.put(context, :boiler_temp, 117)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert state.temp_reheat_timer
+      assert first_timer = state.temp_reheat_timer
       assert state.hold_mode == :reheat
-      assert state.temp_reheat_offset == 4.25
+      # the offset should still be -5 until the timer goes off
+      assert state.temp_reheat_offset == -5
+
+      send(lookup_pid(context, TempControl), {:reheat_increment, 0.5})
 
       Measurement.Store.put(context, :boiler_temp, 118)
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert state.temp_reheat_offset == 3.25
-
-      # get to full temp
-      Measurement.Store.put(context, :boiler_temp, 121)
-
-      # we should no longer be in reheat mode
-      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert state.hold_mode == :maintain
+      assert state.temp_reheat_offset == -4.5
+      assert state.temp_reheat_timer != first_timer
     end
 
     test "reheat plays well with boiler fill", %{
@@ -174,12 +171,15 @@ defmodule CoffeeTime.Boiler.TempControlTest do
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, TempControl))
 
       # The timer goes off while we are filling the boiler
-      send(lookup_pid(context, TempControl), :reheat_complete)
+      send(lookup_pid(context, TempControl), {:reheat_increment, 5})
+
+      Measurement.Store.put(context, :boiler_temp, 122)
 
       flush()
 
       # The hold mode should be adjusted
-      assert {:awaiting_boiler_fill, %{hold_mode: :maintain}} =
+      assert {:awaiting_boiler_fill,
+              %{hold_mode: :maintain, temp_reheat_offset: -5, temp_reheat_timer: nil}} =
                :sys.get_state(name(context, TempControl))
     end
   end
