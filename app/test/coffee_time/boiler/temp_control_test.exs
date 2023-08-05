@@ -127,20 +127,34 @@ defmodule CoffeeTime.Boiler.TempControlTest do
 
       # Once we are more than the offset, we should turn off the boiler and start
       # the timer
-      Measurement.Store.put(context, :boiler_temp, 117)
+      Measurement.Store.put(context, :boiler_temp, 116)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
-      assert first_timer = state.temp_reheat_timer
+      assert state.temp_reheat_timer
       assert state.hold_mode == :reheat
       # the offset should still be -5 until the timer goes off
       assert state.temp_reheat_offset == -5
 
       send(lookup_pid(context, TempControl), {:reheat_increment, 0.5})
 
-      Measurement.Store.put(context, :boiler_temp, 118)
+      # The offset should have been moved up, and the timer canceled.
+      # It won't kick on again until we go above the offset threshold
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
       assert state.temp_reheat_offset == -4.5
-      assert state.temp_reheat_timer != first_timer
+      refute state.temp_reheat_timer
+
+      # We read a value that is still less than the offset threshold, so all the stuff should be
+      # the same as before.
+      Measurement.Store.put(context, :boiler_temp, 116.2)
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_offset == -4.5
+      refute state.temp_reheat_timer
+
+      # We read above the offset threshold, so we kick off the timer to adjust it upward
+      Measurement.Store.put(context, :boiler_temp, 116.5)
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_offset == -4.5
+      assert state.temp_reheat_timer
     end
 
     test "reheat plays well with boiler fill", %{

@@ -162,7 +162,7 @@ defmodule CoffeeTime.Boiler.TempControl do
           switch_to_maintain(data)
 
         data ->
-          maybe_set_reheat_timer(data)
+          data
       end
 
     {:keep_state, data}
