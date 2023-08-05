@@ -132,7 +132,11 @@ defmodule CoffeeTime.Boiler.TempControlTest do
       assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
       assert state.temp_reheat_timer
       assert state.hold_mode == :reheat
-      assert state.temp_reheat_offset == 4
+      assert state.temp_reheat_offset == 4.25
+
+      Measurement.Store.put(context, :boiler_temp, 118)
+      assert {:hold_temp, state} = :sys.get_state(name(context, TempControl))
+      assert state.temp_reheat_offset == 3.25
 
       # get to full temp
       Measurement.Store.put(context, :boiler_temp, 121)
