@@ -15,8 +15,14 @@
       <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
         <.icon name="hero-cpu-chip-mini" /> <%= @cpu_temp %>°C
       </span>
-      <span class="rounded-lg bg-pastel-gray-700 px-2 py-1">
-        <.icon name="hero-cloud-mini" /> <%= @boiler_temp %>°C
+      <span :if={is_nil(@fault)} class="rounded-lg bg-pastel-gray-700 px-2 py-1">
+        <.icon name={
+          if @hold_mode == :reheat, do: "hero-cloud-arrow-up-mini", else: "hero-cloud-mini"
+        } /> <%= @boiler_temp %>°C (<%= @threshold %>°C)
+      </span>
+      <span :if={@fault} class="rounded-lg bg-pastel-gray-700 px-2 py-1">
+        <.icon name="hero-exclamation-triangle-mini bg-cadmium-orange" />
+        <%= @fault.message %>
       </span>
     </div>
   </div>

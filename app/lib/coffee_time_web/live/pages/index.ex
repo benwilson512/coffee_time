@@ -16,6 +16,9 @@ defmodule CoffeeTimeWeb.Pages.Index do
       socket
       |> assign(:cpu_temp, "-")
       |> assign(:boiler_temp, "-")
+      |> assign(:hold_mode, :reheat)
+      |> assign(:threshold, "-")
+      |> assign(:fault, CoffeeTime.Watchdog.get_fault(context))
       |> assign(:context, context)
       |> assign(:programs, programs)
 
@@ -35,7 +38,16 @@ defmodule CoffeeTimeWeb.Pages.Index do
 
   @impl true
   def handle_info({:broadcast, key, value}, socket) when key in [:boiler_temp, :cpu_temp] do
-    {:noreply, assign(socket, key, to_string(trunc(value)))}
+    %{hold_mode: hold_mode, threshold: threshold} =
+      CoffeeTime.Boiler.TempControl.reheat_status(socket.assigns.context)
+
+    socket =
+      socket
+      |> assign(key, to_string(trunc(value)))
+      |> assign(:hold_mode, hold_mode)
+      |> assign(:threshold, threshold)
+
+    {:noreply, socket}
   end
 
   def format_name(program) do

@@ -33,6 +33,12 @@ defmodule CoffeeTime.Boiler.TempControl do
     |> GenStateMachine.call({:set_target_temp, temp})
   end
 
+  def reheat_status(context) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call(:reheat_status)
+  end
+
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
       name: CoffeeTime.Application.name(context, __MODULE__)
@@ -82,6 +88,15 @@ defmodule CoffeeTime.Boiler.TempControl do
       end
 
     {:keep_state, data, [{:reply, from, response}]}
+  end
+
+  def handle_event({:call, from}, :reheat_status, _state, data) do
+    response = %{
+      threshold: offset_threshold(data),
+      hold_mode: data.hold_mode
+    }
+
+    {:keep_state_and_data, [{:reply, from, response}]}
   end
 
   ## Idle
