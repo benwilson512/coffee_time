@@ -25,7 +25,7 @@ defmodule CoffeeTime.Boiler.TempControl do
             hold_mode: :maintain,
             temp_reheat_timer: nil,
             temp_reheat_offset: @default_reheat_offset_c,
-            temp_reheat_iteration: :timer.seconds(10)
+            temp_reheat_iteration: :timer.seconds(30)
 
   def set_target_temp(context, temp) do
     context
