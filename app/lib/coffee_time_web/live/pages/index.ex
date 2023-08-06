@@ -14,11 +14,6 @@ defmodule CoffeeTimeWeb.Pages.Index do
 
     socket =
       socket
-      |> assign(:cpu_temp, "-")
-      |> assign(:boiler_temp, "-")
-      |> assign(:hold_mode, :reheat)
-      |> assign(:threshold, "-")
-      |> assign(:fault, CoffeeTime.Watchdog.get_fault(context))
       |> assign(:context, context)
       |> assign(:programs, programs)
 
