@@ -32,7 +32,20 @@ defmodule CoffeeTimeWeb.Nav.Header do
     """
   end
 
-  def update(assigns, socket) do
+  def update(%{broadcast: {key, value}}, socket) do
+    %{hold_mode: hold_mode, threshold: threshold} =
+      CoffeeTime.Boiler.TempControl.reheat_status(socket.assigns.context)
+
+    socket =
+      socket
+      |> assign(key, to_string(trunc(value)))
+      |> assign(:hold_mode, hold_mode)
+      |> assign(:threshold, threshold)
+
+    {:ok, socket}
+  end
+
+  def update(%{id: id} = assigns, socket) do
     context = assigns.context
 
     socket =
@@ -43,7 +56,20 @@ defmodule CoffeeTimeWeb.Nav.Header do
       |> assign(:threshold, "-")
       |> assign(:fault, CoffeeTime.Watchdog.get_fault(context))
       |> assign(:context, context)
+      |> subscribe(id)
 
     {:ok, socket}
+  end
+
+  defp subscribe(socket, id) do
+    if socket.assigns[:subscribed] do
+      socket
+    else
+      context = socket.assigns.context
+      CoffeeTimeWeb.subscribe_component(context, __MODULE__, id, :boiler_temp)
+      CoffeeTimeWeb.subscribe_component(context, __MODULE__, id, :cpu_temp)
+
+      assign(socket, :subscribed, true)
+    end
   end
 end

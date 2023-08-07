@@ -110,4 +110,12 @@ defmodule CoffeeTimeWeb do
   defmacro __using__(which) when is_atom(which) do
     apply(__MODULE__, which, [])
   end
+
+  def subscribe_component(context, module, id, key) do
+    CoffeeTime.Measurement.Store.subscribe(context, key,
+      on_broadcast: fn pid, key, value ->
+        Phoenix.LiveView.send_update(pid, module, id: id, broadcast: {key, value})
+      end
+    )
+  end
 end

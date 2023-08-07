@@ -1,23 +1,28 @@
 defmodule CoffeeTime.PubSub do
-  def subscribe(context, key) do
-    {:ok, _} = Registry.register(context.pubsub, key, [])
+  def subscribe(context, key, opts \\ []) do
+    {:ok, _} = Registry.register(context.pubsub, key, opts)
   end
 
   def unsubscribe(context, key) do
     Registry.unregister(context.pubsub, key)
   end
 
-  def broadcast(context, key, value) do
-    Registry.dispatch(context.pubsub, key, fn entries ->
-      for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
-    end)
-
-    Registry.dispatch(context.pubsub, "*", fn entries ->
-      for {pid, _} <- entries, do: send(pid, {:broadcast, key, value})
-    end)
+  def broadcast(%{pubsub: pubsub}, key, value) do
+    Registry.dispatch(pubsub, key, &do_broadcast(&1, key, value))
+    Registry.dispatch(pubsub, "*", &do_broadcast(&1, key, value))
   end
 
   def ls(registry) do
     Registry.select(registry, [{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$2", :"$3"}}]}])
+  end
+
+  defp do_broadcast(entries, key, value) do
+    for {pid, opts} <- entries do
+      if fun = opts[:on_broadcast] do
+        fun.(pid, key, value)
+      else
+        send(pid, {:broadcast, key, value})
+      end
+    end
   end
 end

@@ -36,8 +36,8 @@ defmodule CoffeeTime.Measurement.Store do
   the message shape later, and it gives us a typespec which will help enforce correctness
   """
   # @spec subscribe(CoffeeTime.Context.t(), known_measurement()) :: :ok
-  def subscribe(%Context{} = context, key) do
-    PubSub.subscribe(context, key)
+  def subscribe(%Context{} = context, key, opts \\ []) do
+    PubSub.subscribe(context, key, opts)
     :ok
   end
 
