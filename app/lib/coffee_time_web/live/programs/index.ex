@@ -1,4 +1,4 @@
-defmodule CoffeeTimeWeb.Pages.Index do
+defmodule CoffeeTimeWeb.Programs.Index do
   use CoffeeTimeWeb, :live_view
 
   @impl true

@@ -18,7 +18,8 @@ defmodule CoffeeTimeWeb.Router do
     pipe_through(:browser)
 
     live_session :default do
-      live("/", Pages.Index, :index, as: :pages_root)
+      live("/", Programs.Index, :index, as: :programs_index)
+      live("/boiler", Boiler.Index, :index, as: :boiler_index)
     end
   end
 

@@ -1,0 +1,17 @@
+<h1>Boiler Control</h1>
+<.simple_form for={@form} phx-change="validate">
+  <.list>
+    <:item title="Target Temperature">
+      <.input field={@form[:target_temperature]} type="number" />
+    </:item>
+    <:item title="Maintenance Mode">
+      <.input field={@form[:maintenance_mode]} type="checkbox" />
+    </:item>
+    <:item title="Wake time">
+      <.input field={@form[:wake_time]} type="time" />
+    </:item>
+    <:item title="Sleep Time">
+      <.input field={@form[:sleep_time]} type="time" />
+    </:item>
+  </.list>
+</.simple_form>
