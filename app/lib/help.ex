@@ -8,7 +8,7 @@ defmodule Help do
   end
 
   def context() do
-    CoffeeTime.Context.new(:rpi3)
+    CoffeeTime.Context.new(CoffeeTime.Application.target())
   end
 
   def set_maintenance_mode(arg) do
