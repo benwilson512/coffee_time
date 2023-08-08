@@ -17,7 +17,7 @@ defmodule CoffeeTimeWeb.Router do
   scope "/", CoffeeTimeWeb do
     pipe_through(:browser)
 
-    live_session :default do
+    live_session :default, on_mount: CoffeeTimeWeb.Context do
       live("/", Programs.Index, :index, as: :programs_index)
       live("/boiler", Boiler.Index, :index, as: :boiler_index)
     end

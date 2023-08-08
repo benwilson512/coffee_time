@@ -3,13 +3,11 @@ defmodule CoffeeTimeWeb.Programs.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    context = CoffeeTime.Context.new(:host)
-
+    context = socket.assigns.context
     programs = CoffeeTime.Barista.list_programs(context)
 
     socket =
       socket
-      |> assign(:context, context)
       |> assign(:programs, programs)
 
     {:ok, socket}
