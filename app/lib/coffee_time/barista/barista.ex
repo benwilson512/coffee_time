@@ -114,6 +114,10 @@ defmodule CoffeeTime.Barista do
 
     PubSub.unsubscribe(data.context, :flow_pulse)
 
+    with {:executing, program} <- old_state do
+      PubSub.broadcast(data.context, :barista, {:program_done, program})
+    end
+
     :keep_state_and_data
   end
 
@@ -142,15 +146,15 @@ defmodule CoffeeTime.Barista do
     {:keep_state, data}
   end
 
-  def handle_event(:info, msg, {:executing, program}, data) do
+  def handle_event(:info, msg, {:executing, _program}, data) do
     Logger.debug("Received: #{inspect(msg)} #{inspect(data.steps)}")
 
     case {data.steps, msg} do
       {[{:resume, :timer, time} | steps], {:advance_program, time}} ->
-        handle_resume(program, %{data | steps: steps})
+        handle_resume(%{data | steps: steps})
 
       {[{:resume, :flow_pulse, 1} | steps], {:broadcast, :flow_pulse, {1, _time}}} ->
-        handle_resume(program, %{data | steps: steps})
+        handle_resume(%{data | steps: steps})
 
       {[{:resume, :flow_pulse, n} | steps], {:broadcast, :flow_pulse, {1, _time}}} ->
         {:keep_state, %{data | steps: [{:resume, :flow_pulse, n - 1} | steps]}}
@@ -164,11 +168,9 @@ defmodule CoffeeTime.Barista do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
-  def handle_event({:call, from}, :halt, {:executing, program}, data) do
+  def handle_event({:call, from}, :halt, {:executing, _program}, data) do
     :ok = Hydraulics.halt(data.context)
     for {_, timer} <- data.timers, do: Util.cancel_timer(timer)
-
-    PubSub.broadcast(data.context, :barista, {:program_done, program})
 
     {:next_state, :ready, %{data | timers: %{}}, {:reply, from, :ok}}
   end
@@ -189,11 +191,10 @@ defmodule CoffeeTime.Barista do
   ## Program Execution Loop
   #########################
 
-  defp handle_resume(program, %{context: context} = data) do
+  defp handle_resume(%{context: context} = data) do
     case advance_program(data) do
       %{steps: []} = data ->
         unlink!(context, Hydraulics)
-        PubSub.broadcast(context, :barista, {:program_done, program})
 
         {:next_state, :ready, %{data | current_program: nil}}
 
