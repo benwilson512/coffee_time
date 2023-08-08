@@ -23,6 +23,9 @@ defmodule CoffeeTimeWeb.Programs.Index do
       :ok = CoffeeTime.Barista.run_program(socket.assigns.context, program)
     end
 
+    # This is mildly redundant to the handle_info/2 clause
+    # that tracks the running program, but it helps avoid double
+    # pressing the button, and acts like an optimistic ui update
     socket = assign(socket, :running_program, program)
 
     {:noreply, socket}
