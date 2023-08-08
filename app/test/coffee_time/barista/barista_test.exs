@@ -41,7 +41,7 @@ defmodule CoffeeTime.BaristaTest do
       assert :ok = Barista.run_program(context, :test)
 
       assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
-      assert_receive({:broadcast, :barista, {:program_done, %{name: :test}}})
+      assert_receive({:broadcast, :barista, :ready})
     end
 
     test "halting a program terminates it early", %{context: context} do
@@ -61,7 +61,7 @@ defmodule CoffeeTime.BaristaTest do
       assert :ok = Barista.halt(context)
 
       assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
-      assert_receive({:broadcast, :barista, {:program_done, %{name: :test}}})
+      assert_receive({:broadcast, :barista, :ready})
     end
   end
 

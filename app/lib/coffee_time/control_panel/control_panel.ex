@@ -17,7 +17,6 @@ defmodule CoffeeTime.ControlPanel do
   defstruct [
     :context,
     :config,
-    :barista_monitor,
     gpio_pins: %{},
     interrupts: %{},
     timers: %{}
@@ -140,14 +139,12 @@ defmodule CoffeeTime.ControlPanel do
   def handle_event(:enter, old_state, {:watching, _} = new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
-    data = monitor_barista(data)
     {:keep_state, data}
   end
 
   def handle_event(:info, {:circuits_gpio, ref, _, 1}, {:watching, %{ref: ref}}, data) do
     if press_confirmed?(ref, data) do
       Barista.halt(data.context)
-      data = demonitor_barista(data)
       {:next_state, :ready, data}
     else
       :keep_state_and_data
@@ -158,17 +155,8 @@ defmodule CoffeeTime.ControlPanel do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :barista, {:program_done, _}}, {:watching, _}, data) do
-    data = demonitor_barista(data)
+  def handle_event(:info, {:broadcast, :barista, :ready}, {:watching, _}, data) do
     {:next_state, :ready, data}
-  end
-
-  def handle_event(:info, {:DOWN, ref, :process, _, _}, {:watching, _}, data) do
-    if ref == data.barista_monitor do
-      {:next_state, :ready, %{data | barista_monitor: nil}}
-    else
-      :keep_state_and_data
-    end
   end
 
   def handle_event(:info, {:broadcast, :barista, _}, {:watching, _}, _) do
@@ -201,18 +189,6 @@ defmodule CoffeeTime.ControlPanel do
       interrupt_ref = Hardware.set_interrupts(hardware, gpio, :both)
       {interrupt_ref, label}
     end)
-  end
-
-  defp monitor_barista(%{context: context} = data) do
-    pid = GenServer.whereis(name(context, Barista))
-    ref = Process.monitor(pid)
-    %{data | barista_monitor: ref}
-  end
-
-  defp demonitor_barista(%{barista_monitor: ref} = data) do
-    Process.demonitor(ref, [:flush])
-
-    %{data | barista_monitor: nil}
   end
 
   defp press_confirmed?(interrupt_ref, data) do

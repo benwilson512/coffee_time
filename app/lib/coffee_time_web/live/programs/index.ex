@@ -45,14 +45,12 @@ defmodule CoffeeTimeWeb.Programs.Index do
 
   @impl true
   def handle_info({:broadcast, :barista, msg}, socket) do
-    msg |> dbg
-
     socket =
       case msg do
         {:program_start, program} ->
           assign(socket, :running_program, program)
 
-        {:program_done, _} ->
+        :ready ->
           assign(socket, :running_program, nil)
       end
 

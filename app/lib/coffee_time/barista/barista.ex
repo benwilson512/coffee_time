@@ -114,9 +114,7 @@ defmodule CoffeeTime.Barista do
 
     PubSub.unsubscribe(data.context, :flow_pulse)
 
-    with {:executing, program} <- old_state do
-      PubSub.broadcast(data.context, :barista, {:program_done, program})
-    end
+    PubSub.broadcast(data.context, :barista, :ready)
 
     :keep_state_and_data
   end
