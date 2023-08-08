@@ -1,10 +1,7 @@
 <div class="grid grid-cols-4 gap-4">
-  <.progress_button
+  <.program_button
     :for={program <- @programs}
-    phx-click={JS.push("run", value: %{program: program.name})}
-    disabled={@running_program && @running_program.name != program.name}
-  >
-    <.icon name="hero-play-solid" />
-    <%= format_name(program) %>
-  </.progress_button>
+    program={program}
+    running_program={@running_program}
+  />
 </div>
