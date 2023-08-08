@@ -11,8 +11,6 @@ defmodule CoffeeTime.Barista do
   alias CoffeeTime.PubSub
   alias CoffeeTime.Hydraulics
   alias CoffeeTime.Util
-  # alias CoffeeTime.PubSub
-  # alias CoffeeTime.Measurement
 
   defstruct [
     :context,
