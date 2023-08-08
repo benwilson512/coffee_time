@@ -164,9 +164,11 @@ defmodule CoffeeTime.Barista do
     {:keep_state_and_data, {:reply, from, {:error, :busy}}}
   end
 
-  def handle_event({:call, from}, :halt, {:executing, _}, data) do
+  def handle_event({:call, from}, :halt, {:executing, program}, data) do
     :ok = Hydraulics.halt(data.context)
     for {_, timer} <- data.timers, do: Util.cancel_timer(timer)
+
+    PubSub.broadcast(data.context, :barista, {:program_done, program})
 
     {:next_state, :ready, %{data | timers: %{}}, {:reply, from, :ok}}
   end
@@ -178,6 +180,10 @@ defmodule CoffeeTime.Barista do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  def handle_event({:call, from}, :halt, _, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
   end
 
   ## Program Execution Loop

@@ -43,6 +43,26 @@ defmodule CoffeeTime.BaristaTest do
       assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
       assert_receive({:broadcast, :barista, {:program_done, %{name: :test}}})
     end
+
+    test "halting a program terminates it early", %{context: context} do
+      PubSub.subscribe(context, :barista)
+
+      :ok =
+        Barista.save_program(context, %Barista.Program{
+          name: :test,
+          steps: [
+            {:solenoid, :grouphead, :open},
+            {:wait, :timer, :infinity},
+            {:hydraulics, :halt}
+          ]
+        })
+
+      assert :ok = Barista.run_program(context, :test)
+      assert :ok = Barista.halt(context)
+
+      assert_receive({:broadcast, :barista, {:program_start, %{name: :test}}})
+      assert_receive({:broadcast, :barista, {:program_done, %{name: :test}}})
+    end
   end
 
   describe "Real Programs" do
