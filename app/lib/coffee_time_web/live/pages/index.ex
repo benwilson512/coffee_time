@@ -1,8 +1,6 @@
 defmodule CoffeeTimeWeb.Pages.Index do
   use CoffeeTimeWeb, :live_view
 
-  alias CoffeeTime.Measurement
-
   @impl true
   def mount(_params, _session, socket) do
     context = CoffeeTime.Context.new(:host)
