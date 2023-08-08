@@ -593,6 +593,23 @@ defmodule CoffeeTimeWeb.CoreComponents do
     """
   end
 
+  attr :progress, :integer
+  attr :disabled, :boolean, default: false
+  slot(:inner_block, required: true)
+
+  attr(:rest, :global)
+
+  def progress_button(assigns) do
+    ~H"""
+    <button
+      class={["rounded px-2 py-8", if(@disabled, do: "bg-pastel-gray", else: "bg-citrine-brown")]}
+      {@rest}
+    >
+      <%= render_slot(@inner_block) %>
+    </button>
+    """
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do

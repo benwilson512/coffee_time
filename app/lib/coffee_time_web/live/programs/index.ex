@@ -4,10 +4,12 @@ defmodule CoffeeTimeWeb.Programs.Index do
   @impl true
   def mount(_params, _session, socket) do
     context = socket.assigns.context
+    CoffeeTime.PubSub.subscribe(context, :barista)
     programs = CoffeeTime.Barista.list_programs(context)
 
     socket =
       socket
+      |> assign(:running_program, nil)
       |> assign(:programs, programs)
 
     {:ok, socket}
@@ -20,6 +22,21 @@ defmodule CoffeeTimeWeb.Programs.Index do
     if program do
       :ok = CoffeeTime.Barista.run_program(socket.assigns.context, program)
     end
+
+    socket = assign(socket, :running_program, program)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:broadcast, :barista, msg}, socket) do
+    socket =
+      case msg do
+        {:program_start, program} ->
+          assign(socket, :running_program, program)
+
+        {:program_done, program} ->
+          assign(socket, :running_program, nil)
+      end
 
     {:noreply, socket}
   end
