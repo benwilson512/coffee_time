@@ -217,7 +217,8 @@ defmodule CoffeeTimeWeb.CoreComponents do
   """
   attr(:type, :string, default: nil)
   attr(:class, :string, default: nil)
-  attr(:rest, :global, include: ~w(disabled form name value))
+  attr(:disabled, :boolean, default: false)
+  attr(:rest, :global, include: ~w(form name value))
 
   slot(:inner_block, required: true)
 
@@ -226,8 +227,9 @@ defmodule CoffeeTimeWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded-lg bg-zinc-900 hover:bg-zinc-700 py-2 px-3",
+        "phx-submit-loading:opacity-75 rounded-lg hover:bg-zinc-700 py-2 px-3",
         "text-sm font-semibold leading-6 text-white active:text-white/80",
+        if(@disabled, do: "bg-pastel-gray", else: "bg-citrine-brown"),
         @class
       ]}
       {@rest}
@@ -590,23 +592,6 @@ defmodule CoffeeTimeWeb.CoreComponents do
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
     <span class={[@name, @class]} />
-    """
-  end
-
-  attr :progress, :integer
-  attr :disabled, :boolean, default: false
-  slot(:inner_block, required: true)
-
-  attr(:rest, :global)
-
-  def progress_button(assigns) do
-    ~H"""
-    <button
-      class={["rounded px-2 py-8", if(@disabled, do: "bg-pastel-gray", else: "bg-citrine-brown")]}
-      {@rest}
-    >
-      <%= render_slot(@inner_block) %>
-    </button>
     """
   end
 

@@ -68,13 +68,16 @@ defmodule CoffeeTimeWeb.Programs.Index do
       )
 
     ~H"""
-    <.progress_button
+    <.button
       phx-click={JS.push("program-click", value: %{program: @program.name})}
       disabled={@running_program && !@current}
     >
-      <.icon name={if @running_program && @current, do: "hero-pause-solid", else: "hero-play-solid"} />
+      <.icon name={if @current, do: "hero-pause-solid", else: "hero-play-solid"} />
       <%= format_name(@program) %>
-    </.progress_button>
+      <span :if={@current}>
+        <%= @progress %>
+      </span>
+    </.button>
     """
   end
 
