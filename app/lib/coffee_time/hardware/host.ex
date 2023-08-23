@@ -28,6 +28,15 @@ defmodule CoffeeTime.Hardware.Host do
   # not really running this on the host machine much these days
 
   defimpl CoffeeTime.Hardware do
+    def open_i2c(_) do
+      Circuits.I2C.open("i2c-test-0")
+    end
+
+    def read_analog_value(_hardware, _i2c_ref, _device) do
+      # TODO: use CircuitsSim
+      {:ok, 10000}
+    end
+
     def read_boiler_probe_temp(_) do
       100.0
     end

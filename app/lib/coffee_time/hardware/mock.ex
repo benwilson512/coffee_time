@@ -9,7 +9,26 @@ defmodule CoffeeTime.Hardware.Mock do
     end
   end
 
+  def set_analog_value(pid, device, val, opts \\ []) do
+    send(pid, {:i2c, device, val})
+
+    unless opts[:async] do
+      :sys.get_state(pid)
+    end
+  end
+
   defimpl CoffeeTime.Hardware do
+    def open_i2c(_) do
+      {:ok, :i2c}
+    end
+
+    def read_analog_value(_hardware, :i2c = i2c_ref, device) do
+      receive do
+        {^i2c_ref, ^device, val} ->
+          val
+      end
+    end
+
     def read_boiler_probe_temp(_) do
       receive do
         {:boiler_temp, val} ->

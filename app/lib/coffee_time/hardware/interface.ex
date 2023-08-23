@@ -12,4 +12,7 @@ defprotocol CoffeeTime.Hardware do
   def read_cpu_temperature(interface)
 
   def read_one_wire_temperature(interface, name)
+
+  def open_i2c(interface)
+  def read_analog_value(interface, ref, name)
 end

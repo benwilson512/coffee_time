@@ -14,7 +14,8 @@ defmodule CoffeeTime.MeasurementTest do
             idle_read_interval: :infinity,
             refill_read_interval: :infinity
           },
-          Measurement.CpuTemp => %{read_interval: :infinity}
+          Measurement.CpuTemp => %{read_interval: :infinity},
+          Measurement.BoilerPressure => %{read_interval: :infinity}
         }
       })
 
@@ -56,6 +57,18 @@ defmodule CoffeeTime.MeasurementTest do
       assert_receive({:broadcast, :boiler_fill_status, :full})
 
       assert :full == Measurement.Store.fetch!(context, :boiler_fill_status)
+    end
+
+    test "boiler pressure", %{context: context} do
+      Measurement.Store.subscribe(context, :boiler_pressure)
+      pressure_pid = lookup_pid(context, Measurement.BoilerPressure)
+
+      send(pressure_pid, :tick)
+      Hardware.Mock.set_analog_value(pressure_pid, :boiler_pressure, 1.0)
+
+      assert_receive({:broadcast, :boiler_pressure, 1.0})
+
+      assert 1.0 == Measurement.Store.fetch!(context, :boiler_pressure)
     end
   end
 end

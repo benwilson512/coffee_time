@@ -24,10 +24,24 @@ defmodule CoffeeTime.Hardware.Pi do
               Map.new(@pin_layout, fn
                 {number, {name, io, opts}} ->
                   {name, {number, io, opts}}
-              end)
+              end),
+            i2c_devices: %{
+              boiler_pressure: {72, :ain0, :gnd}
+            }
 
   defimpl CoffeeTime.Hardware do
     require Logger
+
+    def open_i2c(_) do
+      Circuits.I2C.open("i2c-1")
+    end
+
+    def read_analog_value(%{i2c_devices: i2c_devices}, i2c_ref, device) do
+      {addr, name, cmp} = Map.fetch!(i2c_devices, device)
+
+      {:ok, val} = ADS1115.read(i2c_ref, addr, {name, cmp})
+      val
+    end
 
     def read_boiler_probe_temp(_) do
       Max31865.get_temp()
