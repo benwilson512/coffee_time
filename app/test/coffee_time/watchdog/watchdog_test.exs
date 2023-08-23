@@ -55,6 +55,18 @@ defmodule CoffeeTime.WatchdogTest do
              } = Watchdog.get_fault(context)
     end
 
+    @tag threshold: %{boiler_pressure: 2.0}
+    test "boiler high pressure faults", %{context: context} do
+      PubSub.broadcast(context, :boiler_pressure, 2.1)
+      assert_receive({:DOWN, _, :process, _, :fault}, 100)
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTime.Watchdog.Fault{
+               message: "Threshold exceeded: The value of boiler_pressure, 2.1, exceeds 2.0"
+             } = Watchdog.get_fault(context)
+    end
+
     @tag threshold: %{cpu_temp: 50}
     test "cpu high temp faults", %{context: context} do
       PubSub.broadcast(context, :cpu_temp, 51)
@@ -72,7 +84,7 @@ defmodule CoffeeTime.WatchdogTest do
     setup :setup_watchdog
 
     @tag healthcheck: %{boiler_temp: 10}
-    test "boiler delay faults", %{context: context} do
+    test "boiler temp delay faults", %{context: context} do
       # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
       assert_receive({:DOWN, _, :process, _, :fault}, 50)
       # Give the supervisor time to reboot it.
@@ -80,6 +92,18 @@ defmodule CoffeeTime.WatchdogTest do
 
       assert %CoffeeTime.Watchdog.Fault{
                message: "Healthcheck failed timeout: :boiler_temp"
+             } = Watchdog.get_fault(context)
+    end
+
+    @tag healthcheck: %{boiler_pressure: 10}
+    test "boiler pressure delay faults", %{context: context} do
+      # If we wait up to 50ms we exceed the deadline of 10ms so it should crash.
+      assert_receive({:DOWN, _, :process, _, :fault}, 50)
+      # Give the supervisor time to reboot it.
+      Process.sleep(50)
+
+      assert %CoffeeTime.Watchdog.Fault{
+               message: "Healthcheck failed timeout: :boiler_pressure"
              } = Watchdog.get_fault(context)
     end
 

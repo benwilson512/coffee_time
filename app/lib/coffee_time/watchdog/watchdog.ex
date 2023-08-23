@@ -199,6 +199,7 @@ defmodule CoffeeTime.Watchdog do
 
   @healthchecks [
     :boiler_temp,
+    :boiler_pressure,
     :cpu_temp,
     :boiler_fill_status
   ]

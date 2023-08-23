@@ -67,7 +67,8 @@ defmodule CoffeeTime.Context do
       },
       threshold: %{
         cpu_temp: 70,
-        boiler_temp: 130
+        boiler_temp: 130,
+        boiler_pressure: 2.0
       }
     }
   end
