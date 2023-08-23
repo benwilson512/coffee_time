@@ -25,7 +25,8 @@ defmodule CoffeeTime.Boiler.TempControl do
             hold_mode: :maintain,
             temp_reheat_timer: nil,
             temp_reheat_offset: @default_reheat_offset_c,
-            temp_reheat_iteration: :timer.seconds(30)
+            temp_reheat_iteration: :timer.seconds(30),
+            measurement: :boiler_temp
 
   def set_target_temp(context, temp) do
     context
@@ -39,20 +40,24 @@ defmodule CoffeeTime.Boiler.TempControl do
     |> GenStateMachine.call(:reheat_status)
   end
 
-  def start_link(%{context: context}) do
-    GenStateMachine.start_link(__MODULE__, context,
+  def start_link(%{context: context} = params) do
+    GenStateMachine.start_link(__MODULE__, params,
       name: CoffeeTime.Application.name(context, __MODULE__)
     )
   end
 
-  def init(context) do
+  def init(%{context: context} = params) do
     stored_temp = CubDB.get(name(context, :db), :target_temp)
 
-    data = %__MODULE__{
-      context: context,
-      target_temperature: stored_temp || 0,
-      target_duty_cycle: 0
-    }
+    attrs = Map.take(params, [:measurement, :temp_reheat_offset])
+
+    data =
+      %__MODULE__{
+        context: context,
+        target_temperature: stored_temp || 0,
+        target_duty_cycle: 0
+      }
+      |> struct!(attrs)
 
     set_duty_cycle!(data)
 
@@ -60,7 +65,7 @@ defmodule CoffeeTime.Boiler.TempControl do
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
-    Measurement.Store.subscribe(data.context, :boiler_temp)
+    Measurement.Store.subscribe(data.context, data.measurement)
 
     cond do
       CoffeeTime.Watchdog.get_fault(context) ->
@@ -136,7 +141,12 @@ defmodule CoffeeTime.Boiler.TempControl do
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_temp, prev_data) do
+  def handle_event(
+        :info,
+        {:broadcast, measurement, val},
+        :hold_temp,
+        %{measurement: measurement} = prev_data
+      ) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
