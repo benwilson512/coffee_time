@@ -59,6 +59,8 @@ defmodule CoffeeTime.MixProject do
       # Dependencies for all targets
       {:circuits_gpio, "~> 1.0"},
       {:circuits_spi, "~> 1.3"},
+      {:circuits_i2c, "~> 2.0", override: true},
+      {:ads1115, "~> 0.2.1"},
       {:max31865, "~> 0.1.0", github: "benwilson512/max31865"},
       {:nerves_time_zones, "~> 0.3.0"}
     ]
