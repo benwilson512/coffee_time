@@ -1,4 +1,4 @@
-defmodule CoffeeTime.Boiler.TempControl do
+defmodule CoffeeTime.Boiler.HeatControl do
   @moduledoc """
   Manages the Boiler state machine.
 
@@ -28,10 +28,10 @@ defmodule CoffeeTime.Boiler.TempControl do
             temp_reheat_iteration: :timer.seconds(30),
             measurement: :boiler_temp
 
-  def set_target_temp(context, temp) do
+  def set_target(context, temp) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call({:set_target_temp, temp})
+    |> GenStateMachine.call({:set_target, temp})
   end
 
   def reheat_status(context) do
@@ -47,14 +47,12 @@ defmodule CoffeeTime.Boiler.TempControl do
   end
 
   def init(%{context: context} = params) do
-    stored_temp = CubDB.get(name(context, :db), :target_temp)
-
     attrs = Map.take(params, [:measurement, :temp_reheat_offset])
 
     data =
       %__MODULE__{
         context: context,
-        target_temperature: stored_temp || 0,
+        target_temperature: 0,
         target_duty_cycle: 0
       }
       |> struct!(attrs)
@@ -81,12 +79,11 @@ defmodule CoffeeTime.Boiler.TempControl do
 
   ## General Commands
 
-  def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
+  def handle_event({:call, from}, {:set_target, temp}, _state, data) do
     Logger.info("Setting target temp: #{temp}")
 
     {response, data} =
-      if temp < 128 do
-        CubDB.put(name(data.context, :db), :target_temp, temp)
+      if valid_target?(data, temp) do
         {:ok, %{data | target_temperature: temp}}
       else
         {{:error, :unsafe_temp}, data}
@@ -284,5 +281,17 @@ defmodule CoffeeTime.Boiler.TempControl do
       | hold_mode: :maintain,
         temp_reheat_offset: @default_reheat_offset_c
     }
+  end
+
+  defp valid_target?(%{measurement: :boiler_temp}, target) when target < 128 do
+    true
+  end
+
+  defp valid_target?(%{measurement: :boiler_pressure}, target) when target < 14000 do
+    true
+  end
+
+  defp valid_target?(_, _) do
+    false
   end
 end

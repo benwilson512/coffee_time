@@ -17,7 +17,7 @@ defmodule CoffeeTime.Boiler.TempManager do
   alias CoffeeTime.Util
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil, ready_temp: 121, sleep_temp: 0
+  defstruct context: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -35,6 +35,12 @@ defmodule CoffeeTime.Boiler.TempManager do
     context
     |> name(__MODULE__)
     |> GenStateMachine.call(:sleep)
+  end
+
+  def set_wake_temp(context, temp) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call({:set_wake_temp, temp})
   end
 
   def lookup_config(context) do
@@ -82,9 +88,16 @@ defmodule CoffeeTime.Boiler.TempManager do
   ######################
 
   def handle_event(:enter, old_state, :ready, data) do
+    stored_temp = CubDB.get(name(data.context, :db), :target_temp)
     Util.log_state_change(__MODULE__, old_state, :ready)
-    Boiler.TempControl.set_target_temp(data.context, data.ready_temp)
+    Boiler.HeatControl.set_target(data.context, stored_temp)
     :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, {:set_wake_temp, temp}, :ready, data) do
+    CubDB.put(name(data.context, :db), :target_temp, temp)
+    Boiler.HeatControl.set_target(data.context, temp)
+    {:keep_state_and_data, {:reply, from, :ok}}
   end
 
   def handle_event({:call, from}, :sleep, :ready, data) do
@@ -104,9 +117,14 @@ defmodule CoffeeTime.Boiler.TempManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    Boiler.TempControl.set_target_temp(data.context, data.sleep_temp)
+    Boiler.HeatControl.set_target(data.context, 0)
 
     :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, {:set_wake_temp, temp}, :sleep, data) do
+    CubDB.put(name(data.context, :db), :target_temp, temp)
+    {:keep_state_and_data, {:reply, from, :ok}}
   end
 
   # If we start doing something we should kick out of sleep and enter the ready
