@@ -65,9 +65,9 @@ defmodule CoffeeTime.Context do
         boiler_temp: :timer.seconds(5),
         boiler_fill_status: :timer.seconds(10)
       },
-      threshold: %{
-        cpu_temp: 70,
-        boiler_temp: 130
+      bound: %{
+        cpu_temp: 10..70,
+        boiler_temp: 10..130
       }
     }
   end

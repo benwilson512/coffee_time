@@ -6,6 +6,8 @@ import Config
 
 config :logger, backends: [RingLogger]
 
+config :logger, level: :info
+
 config :tz, :data_dir, "/data"
 
 # Use shoehorn to start the main application. See the shoehorn
