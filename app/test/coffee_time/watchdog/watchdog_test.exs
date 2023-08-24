@@ -43,7 +43,7 @@ defmodule CoffeeTime.WatchdogTest do
   describe "thresholds" do
     setup :setup_watchdog
 
-    @tag threshold: %{boiler_temp: 130}
+    @tag bound: %{boiler_temp: 0..130}
     test "boiler high temp faults", %{context: context} do
       PubSub.broadcast(context, :boiler_temp, 131)
       assert_receive({:DOWN, _, :process, _, :fault}, 100)
@@ -51,11 +51,11 @@ defmodule CoffeeTime.WatchdogTest do
       Process.sleep(50)
 
       assert %CoffeeTime.Watchdog.Fault{
-               message: "Threshold exceeded: The value of boiler_temp, 131, exceeds 130"
+               message: "Boundary violated: The value of boiler_temp, 131, violates 0..130"
              } = Watchdog.get_fault(context)
     end
 
-    @tag threshold: %{cpu_temp: 50}
+    @tag bound: %{cpu_temp: 0..50}
     test "cpu high temp faults", %{context: context} do
       PubSub.broadcast(context, :cpu_temp, 51)
       assert_receive({:DOWN, _, :process, _, :fault}, 100)
@@ -63,7 +63,7 @@ defmodule CoffeeTime.WatchdogTest do
       Process.sleep(50)
 
       assert %CoffeeTime.Watchdog.Fault{
-               message: "Threshold exceeded: The value of cpu_temp, 51, exceeds 50"
+               message: "Boundary violated: The value of cpu_temp, 51, violates 0..50"
              } = Watchdog.get_fault(context)
     end
   end
@@ -242,7 +242,7 @@ defmodule CoffeeTime.WatchdogTest do
              reboot_on_fault: false,
              healthcheck: params[:healthcheck] || %{},
              deadline: params[:deadline] || %{},
-             threshold: params[:threshold] || %{}
+             bound: params[:bound] || %{}
            }
          }}
       )
