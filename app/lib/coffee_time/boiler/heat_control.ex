@@ -1,4 +1,4 @@
-defmodule CoffeeTime.Boiler.TempControl do
+defmodule CoffeeTime.Boiler.HeatControl do
   @moduledoc """
   Manages the Boiler state machine.
 

@@ -31,7 +31,7 @@ defmodule CoffeeTime.Boiler do
 
     children = [
       {__MODULE__.DutyCycle, params},
-      {__MODULE__.TempControl, params},
+      {__MODULE__.HeatControl, params},
       {__MODULE__.TempManager, params}
     ]
 

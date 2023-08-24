@@ -10,14 +10,14 @@ defmodule CoffeeTime do
   def get_target_temp() do
     {_, %{target_temperature: target}} =
       context()
-      |> CoffeeTime.Application.name(CoffeeTime.Boiler.TempControl)
+      |> CoffeeTime.Application.name(CoffeeTime.Boiler.HeatControl)
       |> :sys.get_state()
 
     target
   end
 
   def set_target_temp(temp) do
-    CoffeeTime.Boiler.TempControl.set_target_temp(context(), temp)
+    CoffeeTime.Boiler.HeatControl.set_target_temp(context(), temp)
   end
 
   def status() do
