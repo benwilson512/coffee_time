@@ -94,20 +94,20 @@ defmodule CoffeeTime.Boiler.HeatControlTest do
       Measurement.Store.put(context, :boiler_temp, 116)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_timer
+      assert state.reheat_timer
       assert state.hold_mode == :reheat
 
       # If we drop below the reduced temp we still add heat, but the timer should not change
       Measurement.Store.put(context, :boiler_temp, 115)
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_timer
+      assert state.reheat_timer
       assert state.hold_mode == :reheat
 
       # increment the offset all the way. This should kick us into maintain mode
       send(lookup_pid(context, HeatControl), {:reheat_increment, 5})
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      refute state.temp_reheat_timer
+      refute state.reheat_timer
       assert state.hold_mode == :maintain
     end
 
@@ -123,38 +123,38 @@ defmodule CoffeeTime.Boiler.HeatControlTest do
       assert {:hold_temp, %{hold_mode: :reheat} = state} =
                :sys.get_state(name(context, HeatControl))
 
-      assert state.temp_reheat_offset == -5
+      assert state.reheat_offset == -5
 
       # Once we are more than the offset, we should turn off the boiler and start
       # the timer
       Measurement.Store.put(context, :boiler_temp, 116)
       assert_receive({:broadcast, :boiler_duty_cycle, 0})
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_timer
+      assert state.reheat_timer
       assert state.hold_mode == :reheat
       # the offset should still be -5 until the timer goes off
-      assert state.temp_reheat_offset == -5
+      assert state.reheat_offset == -5
 
       send(lookup_pid(context, HeatControl), {:reheat_increment, 0.5})
 
       # The offset should have been moved up, and the timer canceled.
       # It won't kick on again until we go above the offset threshold
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_offset == -4.5
-      refute state.temp_reheat_timer
+      assert state.reheat_offset == -4.5
+      refute state.reheat_timer
 
       # We read a value that is still less than the offset threshold, so all the stuff should be
       # the same as before.
       Measurement.Store.put(context, :boiler_temp, 116.2)
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_offset == -4.5
-      refute state.temp_reheat_timer
+      assert state.reheat_offset == -4.5
+      refute state.reheat_timer
 
       # We read above the offset threshold, so we kick off the timer to adjust it upward
       Measurement.Store.put(context, :boiler_temp, 116.5)
       assert {:hold_temp, state} = :sys.get_state(name(context, HeatControl))
-      assert state.temp_reheat_offset == -4.5
-      assert state.temp_reheat_timer
+      assert state.reheat_offset == -4.5
+      assert state.reheat_timer
     end
 
     test "reheat plays well with boiler fill", %{
@@ -174,7 +174,7 @@ defmodule CoffeeTime.Boiler.HeatControlTest do
       # We've heated up nicely and the timer is kicked off to go to maintainance mode
       Measurement.Store.put(context, :boiler_temp, 118)
 
-      assert {:hold_temp, %{temp_reheat_timer: timer}} =
+      assert {:hold_temp, %{reheat_timer: timer}} =
                :sys.get_state(name(context, HeatControl))
 
       assert timer
@@ -193,7 +193,7 @@ defmodule CoffeeTime.Boiler.HeatControlTest do
 
       # The hold mode should be adjusted
       assert {:awaiting_boiler_fill,
-              %{hold_mode: :maintain, temp_reheat_offset: -5, temp_reheat_timer: nil}} =
+              %{hold_mode: :maintain, reheat_offset: -5, reheat_timer: nil}} =
                :sys.get_state(name(context, HeatControl))
     end
   end
