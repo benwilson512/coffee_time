@@ -74,9 +74,9 @@ defmodule CoffeeTime.ContextCase do
         boiler_temp: :infinity,
         boiler_fill_status: :infinity
       },
-      threshold: %{
-        cpu_temp: 1000,
-        boiler_temp: 1000
+      bound: %{
+        cpu_temp: 0..1000,
+        boiler_temp: 0..1000
       }
     }
 

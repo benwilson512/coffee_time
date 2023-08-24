@@ -16,13 +16,13 @@ defmodule CoffeeTime.Watchdog do
     :fault,
     deadline: %{},
     healthcheck: %{},
-    threshold: %{},
+    bound: %{},
     allowances: %{},
     reboot_on_fault: true,
     timers: %{}
   ]
 
-  @type fault_type :: :deadline | :healthcheck | :threshold
+  @type fault_type :: :deadline | :healthcheck | :bound
 
   @doc """
   Clears a fault and then restarts the application.
@@ -204,13 +204,13 @@ defmodule CoffeeTime.Watchdog do
   ]
 
   def handle_info({:broadcast, key, val}, state) when key in @healthchecks do
-    threshold = Map.get(state.threshold, key)
+    bound = Map.get(state.bound, key)
 
-    if threshold && val > threshold do
+    if bound && not safe_val?(bound, val) do
       {:stop, :fault,
        set_fault(
          state,
-         "Threshold exceeded: The value of #{key}, #{val}, exceeds #{threshold}"
+         "Boundary violated: The value of #{key}, #{val}, violates #{inspect(bound)}"
        )}
     else
       state =
@@ -392,5 +392,9 @@ defmodule CoffeeTime.Watchdog do
 
   def fault_file_path(%{data_dir: dir}) do
     Path.join(dir, "fault.json")
+  end
+
+  defp safe_val?(lower..upper, val) do
+    lower <= val and val <= upper
   end
 end

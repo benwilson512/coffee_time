@@ -1,4 +1,4 @@
-defmodule CoffeeTime.Boiler.TempControl do
+defmodule CoffeeTime.Boiler.PowerControl do
   @moduledoc """
   Manages the Boiler state machine.
 
@@ -19,18 +19,20 @@ defmodule CoffeeTime.Boiler.TempControl do
   @default_reheat_offset_c -5
   @reheat_increment_c 0.5
 
-  defstruct target_temperature: 0,
+  @db_key {__MODULE__, :target}
+
+  defstruct target: 0,
             context: nil,
             target_duty_cycle: 0,
             hold_mode: :maintain,
-            temp_reheat_timer: nil,
-            temp_reheat_offset: @default_reheat_offset_c,
-            temp_reheat_iteration: :timer.seconds(30)
+            reheat_timer: nil,
+            reheat_offset: @default_reheat_offset_c,
+            reheat_iteration: :timer.seconds(30)
 
-  def set_target_temp(context, temp) do
+  def set_target(context, val) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call({:set_target_temp, temp})
+    |> GenStateMachine.call({:set_target, val})
   end
 
   def reheat_status(context) do
@@ -46,17 +48,17 @@ defmodule CoffeeTime.Boiler.TempControl do
   end
 
   def init(context) do
-    stored_temp = CubDB.get(name(context, :db), :target_temp)
+    stored_target = CubDB.get(name(context, :db), @db_key)
 
     data = %__MODULE__{
       context: context,
-      target_temperature: stored_temp || 0,
+      target: stored_target || 0,
       target_duty_cycle: 0
     }
 
     set_duty_cycle!(data)
 
-    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_temp`
+    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_target`
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
@@ -67,7 +69,7 @@ defmodule CoffeeTime.Boiler.TempControl do
         {:ok, :idle, data}
 
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
-        {:ok, :hold_temp, data}
+        {:ok, :hold_target, data}
 
       true ->
         {:ok, :awaiting_boiler_fill, data}
@@ -76,15 +78,15 @@ defmodule CoffeeTime.Boiler.TempControl do
 
   ## General Commands
 
-  def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
-    Logger.info("Setting target temp: #{temp}")
+  def handle_event({:call, from}, {:set_target, target}, _state, data) do
+    Logger.info("Setting target: #{target}")
 
     {response, data} =
-      if temp < 128 do
-        CubDB.put(name(data.context, :db), :target_temp, temp)
-        {:ok, %{data | target_temperature: temp}}
+      if target < 128 do
+        CubDB.put(name(data.context, :db), @db_key, target)
+        {:ok, %{data | target: target}}
       else
-        {{:error, :unsafe_temp}, data}
+        {{:error, :unsafe_target}, data}
       end
 
     {:keep_state, data, [{:reply, from, response}]}
@@ -92,7 +94,7 @@ defmodule CoffeeTime.Boiler.TempControl do
 
   def handle_event({:call, from}, :reheat_status, _state, data) do
     response = %{
-      threshold: offset_threshold(data),
+      threshold: threshold(data),
       hold_mode: data.hold_mode
     }
 
@@ -121,7 +123,7 @@ defmodule CoffeeTime.Boiler.TempControl do
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
     case status do
       :full ->
-        {:next_state, :hold_temp, data}
+        {:next_state, :hold_target, data}
 
       _ ->
         :keep_state_and_data
@@ -132,11 +134,11 @@ defmodule CoffeeTime.Boiler.TempControl do
     :keep_state_and_data
   end
 
-  ## Temp hold logic
+  ## Target hold logic
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_temp, prev_data) do
+  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_target, prev_data) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
@@ -152,7 +154,7 @@ defmodule CoffeeTime.Boiler.TempControl do
     {:keep_state, data}
   end
 
-  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, data) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_target, data) do
     case status do
       :full ->
         :keep_state_and_data
@@ -168,12 +170,12 @@ defmodule CoffeeTime.Boiler.TempControl do
   def handle_event(:info, {:reheat_increment, increment}, _, data) do
     data =
       data
-      |> Map.update!(:temp_reheat_offset, fn offset ->
+      |> Map.update!(:reheat_offset, fn offset ->
         min(offset + increment, 0)
       end)
       |> cancel_reheat_timer
       |> case do
-        %{temp_reheat_offset: offset} = data when offset == 0 ->
+        %{reheat_offset: offset} = data when offset == 0 ->
           switch_to_maintain(data)
 
         data ->
@@ -197,10 +199,10 @@ defmodule CoffeeTime.Boiler.TempControl do
   def adjust_hold_mode(%{hold_mode: :reheat} = data, value) do
     cond do
       # We are fully heated up, so switch out of reheat mode
-      value >= data.target_temperature ->
+      value >= data.target ->
         switch_to_maintain(data)
 
-      data.temp_reheat_offset == 0 ->
+      data.reheat_offset == 0 ->
         switch_to_maintain(data)
 
       true ->
@@ -232,26 +234,26 @@ defmodule CoffeeTime.Boiler.TempControl do
 
   def threshold(data) do
     case data.hold_mode do
-      :maintain -> data.target_temperature
+      :maintain -> data.target
       :reheat -> offset_threshold(data)
     end
   end
 
   defp offset_threshold(data) do
-    data.target_temperature + data.temp_reheat_offset
+    data.target + data.reheat_offset
   end
 
   def maybe_set_reheat_timer(data) do
     case data do
-      %{hold_mode: :reheat, temp_reheat_timer: nil} ->
+      %{hold_mode: :reheat, reheat_timer: nil} ->
         timer =
           Util.send_after(
             self(),
             {:reheat_increment, @reheat_increment_c},
-            data.temp_reheat_iteration
+            data.reheat_iteration
           )
 
-        %{data | temp_reheat_timer: timer}
+        %{data | reheat_timer: timer}
 
       _ ->
         data
@@ -259,11 +261,11 @@ defmodule CoffeeTime.Boiler.TempControl do
   end
 
   defp cancel_reheat_timer(data) do
-    if timer = data.temp_reheat_timer do
+    if timer = data.reheat_timer do
       Util.cancel_timer(timer)
     end
 
-    %{data | temp_reheat_timer: nil}
+    %{data | reheat_timer: nil}
   end
 
   defp switch_to_maintain(data) do
@@ -272,7 +274,7 @@ defmodule CoffeeTime.Boiler.TempControl do
     %{
       data
       | hold_mode: :maintain,
-        temp_reheat_offset: @default_reheat_offset_c
+        reheat_offset: @default_reheat_offset_c
     }
   end
 end
