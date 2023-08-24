@@ -19,6 +19,8 @@ defmodule CoffeeTime.Boiler.HeatControl do
   @default_reheat_offset_c -5
   @reheat_increment_c 0.5
 
+  @db_key {__MODULE__, :target}
+
   defstruct target: 0,
             context: nil,
             target_duty_cycle: 0,
@@ -27,10 +29,10 @@ defmodule CoffeeTime.Boiler.HeatControl do
             reheat_offset: @default_reheat_offset_c,
             reheat_iteration: :timer.seconds(30)
 
-  def set_target_temp(context, temp) do
+  def set_target(context, val) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call({:set_target_temp, temp})
+    |> GenStateMachine.call({:set_target, val})
   end
 
   def reheat_status(context) do
@@ -46,17 +48,17 @@ defmodule CoffeeTime.Boiler.HeatControl do
   end
 
   def init(context) do
-    stored_temp = CubDB.get(name(context, :db), :target_temp)
+    stored_target = CubDB.get(name(context, :db), @db_key)
 
     data = %__MODULE__{
       context: context,
-      target: stored_temp || 0,
+      target: stored_target || 0,
       target_duty_cycle: 0
     }
 
     set_duty_cycle!(data)
 
-    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_temp`
+    # No matter what we set the target duty cycle to 0 on boot. This gets overriden in the `:hold_target`
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
@@ -67,7 +69,7 @@ defmodule CoffeeTime.Boiler.HeatControl do
         {:ok, :idle, data}
 
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
-        {:ok, :hold_temp, data}
+        {:ok, :hold_target, data}
 
       true ->
         {:ok, :awaiting_boiler_fill, data}
@@ -76,15 +78,15 @@ defmodule CoffeeTime.Boiler.HeatControl do
 
   ## General Commands
 
-  def handle_event({:call, from}, {:set_target_temp, temp}, _state, data) do
-    Logger.info("Setting target temp: #{temp}")
+  def handle_event({:call, from}, {:set_target, target}, _state, data) do
+    Logger.info("Setting target: #{target}")
 
     {response, data} =
-      if temp < 128 do
-        CubDB.put(name(data.context, :db), :target_temp, temp)
-        {:ok, %{data | target: temp}}
+      if target < 128 do
+        CubDB.put(name(data.context, :db), @db_key, target)
+        {:ok, %{data | target: target}}
       else
-        {{:error, :unsafe_temp}, data}
+        {{:error, :unsafe_target}, data}
       end
 
     {:keep_state, data, [{:reply, from, response}]}
@@ -121,7 +123,7 @@ defmodule CoffeeTime.Boiler.HeatControl do
   def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :awaiting_boiler_fill, data) do
     case status do
       :full ->
-        {:next_state, :hold_temp, data}
+        {:next_state, :hold_target, data}
 
       _ ->
         :keep_state_and_data
@@ -132,11 +134,11 @@ defmodule CoffeeTime.Boiler.HeatControl do
     :keep_state_and_data
   end
 
-  ## Temp hold logic
+  ## Target hold logic
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_temp, prev_data) do
+  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_target, prev_data) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
@@ -152,7 +154,7 @@ defmodule CoffeeTime.Boiler.HeatControl do
     {:keep_state, data}
   end
 
-  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_temp, data) do
+  def handle_event(:info, {:broadcast, :boiler_fill_status, status}, :hold_target, data) do
     case status do
       :full ->
         :keep_state_and_data

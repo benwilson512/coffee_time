@@ -16,8 +16,8 @@ defmodule CoffeeTime do
     target
   end
 
-  def set_target_temp(temp) do
-    CoffeeTime.Boiler.HeatControl.set_target_temp(context(), temp)
+  def set_target(temp) do
+    CoffeeTime.Boiler.HeatControl.set_target(context(), temp)
   end
 
   def status() do
