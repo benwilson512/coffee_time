@@ -92,7 +92,7 @@ defmodule CoffeeTime.Boiler.TempControl do
 
   def handle_event({:call, from}, :reheat_status, _state, data) do
     response = %{
-      threshold: offset_threshold(data),
+      threshold: threshold(data),
       hold_mode: data.hold_mode
     }
 
