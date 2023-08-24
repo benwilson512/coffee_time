@@ -38,7 +38,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def lookup_config(context) do
-    CubDB.get(name(context, :db), :boiler_temp_manager)
+    CubDB.get(name(context, :db), :boiler_power_manager)
   end
 
   def init(context) do
