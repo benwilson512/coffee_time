@@ -1,4 +1,4 @@
-defmodule CoffeeTime.Boiler.TempManager do
+defmodule CoffeeTime.Boiler.PowerManager do
   @moduledoc """
   Manages changing the desired temp
   """
@@ -83,7 +83,7 @@ defmodule CoffeeTime.Boiler.TempManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    Boiler.HeatControl.set_target(data.context, data.ready_temp)
+    Boiler.PowerControl.set_target(data.context, data.ready_temp)
     :keep_state_and_data
   end
 
@@ -104,7 +104,7 @@ defmodule CoffeeTime.Boiler.TempManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    Boiler.HeatControl.set_target(data.context, data.sleep_temp)
+    Boiler.PowerControl.set_target(data.context, data.sleep_temp)
 
     :keep_state_and_data
   end

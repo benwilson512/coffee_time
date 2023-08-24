@@ -34,7 +34,7 @@ defmodule CoffeeTimeWeb.Nav.Header do
 
   def update(%{broadcast: {key, value}}, socket) do
     %{hold_mode: hold_mode, threshold: threshold} =
-      CoffeeTime.Boiler.HeatControl.reheat_status(socket.assigns.context)
+      CoffeeTime.Boiler.PowerControl.reheat_status(socket.assigns.context)
 
     socket =
       socket
