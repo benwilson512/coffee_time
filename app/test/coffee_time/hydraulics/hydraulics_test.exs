@@ -155,6 +155,14 @@ defmodule CoffeeTime.HydraulicsTest do
       Hydraulics.halt(context)
       assert_receive({:write_gpio, :grouphead_solenoid, 1})
     end
+
+    test "halt/1 is idempotent", %{context: context} do
+      Hydraulics.open_solenoid(context, :grouphead)
+      assert_receive({:write_gpio, :grouphead_solenoid, 0})
+      {:ok, :halted} = Hydraulics.halt(context)
+      assert_receive({:write_gpio, :grouphead_solenoid, 1})
+      {:ok, :noop} = Hydraulics.halt(context)
+    end
   end
 
   defp boot(%{context: context} = info) do
