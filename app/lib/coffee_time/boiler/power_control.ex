@@ -19,8 +19,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
   @default_reheat_offset_c -5
   @reheat_increment_c 0.5
 
-  @db_key {__MODULE__, :target}
-
   defstruct target: 0,
             context: nil,
             target_duty_cycle: 0,
@@ -48,11 +46,9 @@ defmodule CoffeeTime.Boiler.PowerControl do
   end
 
   def init(context) do
-    stored_target = CubDB.get(name(context, :db), @db_key)
-
     data = %__MODULE__{
       context: context,
-      target: stored_target || 0,
+      target: 0,
       target_duty_cycle: 0
     }
 
@@ -83,7 +79,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
 
     {response, data} =
       if target < 128 do
-        CubDB.put(name(data.context, :db), @db_key, target)
         {:ok, %{data | target: target}}
       else
         {{:error, :unsafe_target}, data}
