@@ -72,30 +72,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
     end
   end
 
-  ## General Commands
-
-  def handle_event({:call, from}, {:set_target, target}, _state, data) do
-    Logger.info("Setting target: #{target}")
-
-    {response, data} =
-      if target < 128 do
-        {:ok, %{data | target: target}}
-      else
-        {{:error, :unsafe_target}, data}
-      end
-
-    {:keep_state, data, [{:reply, from, response}]}
-  end
-
-  def handle_event({:call, from}, :reheat_status, _state, data) do
-    response = %{
-      threshold: threshold(data),
-      hold_mode: data.hold_mode
-    }
-
-    {:keep_state_and_data, [{:reply, from, response}]}
-  end
-
   ## Idle
   ####################
 
@@ -157,6 +133,35 @@ defmodule CoffeeTime.Boiler.PowerControl do
       :low ->
         {:next_state, :awaiting_boiler_fill, data}
     end
+  end
+
+  ## General Commands
+
+  def handle_event({:call, from}, {:set_target, nil}, _state, data) do
+    data = %{data | target: nil}
+    {:next_state, :idle, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, {:set_target, target}, _state, data) do
+    Logger.info("Setting target: #{target}")
+
+    {response, data} =
+      if target < 128 do
+        {:ok, %{data | target: target}}
+      else
+        {{:error, :unsafe_target}, data}
+      end
+
+    {:keep_state, data, [{:reply, from, response}]}
+  end
+
+  def handle_event({:call, from}, :reheat_status, _state, data) do
+    response = %{
+      threshold: threshold(data),
+      hold_mode: data.hold_mode
+    }
+
+    {:keep_state_and_data, [{:reply, from, response}]}
   end
 
   ## General Handlers

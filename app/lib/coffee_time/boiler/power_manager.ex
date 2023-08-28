@@ -83,7 +83,8 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    Boiler.PowerControl.set_target(data.context, data.ready_temp)
+    ready_temp = lookup_config(data.context)[:ready_temp]
+    Boiler.PowerControl.set_target(data.context, ready_temp)
     :keep_state_and_data
   end
 
