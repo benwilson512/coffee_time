@@ -17,7 +17,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   alias CoffeeTime.Util
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil, ready_temp: 121, sleep_temp: 0
+  defstruct context: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -83,7 +83,8 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    Boiler.PowerControl.set_target(data.context, data.ready_temp)
+    ready_temp = lookup_config(data.context)[:ready_temp]
+    Boiler.PowerControl.set_target(data.context, ready_temp)
     :keep_state_and_data
   end
 
@@ -104,7 +105,8 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    Boiler.PowerControl.set_target(data.context, data.sleep_temp)
+    sleep_temp = lookup_config(data.context)[:sleep_temp]
+    Boiler.PowerControl.set_target(data.context, sleep_temp)
 
     :keep_state_and_data
   end

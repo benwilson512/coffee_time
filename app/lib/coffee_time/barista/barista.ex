@@ -165,7 +165,7 @@ defmodule CoffeeTime.Barista do
   end
 
   def handle_event({:call, from}, :halt, {:executing, _program}, data) do
-    :ok = Hydraulics.halt(data.context)
+    {:ok, _} = Hydraulics.halt(data.context)
     for {_, timer} <- data.timers, do: Util.cancel_timer(timer)
 
     {:next_state, :ready, %{data | timers: %{}}, {:reply, from, :ok}}
@@ -222,7 +222,7 @@ defmodule CoffeeTime.Barista do
         advance_program(%{data | steps: rest})
 
       {:hydraulics, :halt} ->
-        :ok = Hydraulics.halt(context)
+        {:ok, _} = Hydraulics.halt(context)
         advance_program(%{data | steps: rest})
 
       {:wait, :flow_pulse, val} ->

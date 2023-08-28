@@ -187,6 +187,10 @@ defmodule CoffeeTime.Hydraulics do
     {:next_state, :boiler_filling, data}
   end
 
+  def handle_event({:call, from}, :halt, :ready, _) do
+    {:keep_state_and_data, {:reply, from, {:ok, :noop}}}
+  end
+
   ## Boiler Filling
   ##################
 
@@ -257,7 +261,7 @@ defmodule CoffeeTime.Hydraulics do
   end
 
   def handle_event({:call, from}, :halt, {:holding_solenoid, _}, data) do
-    {:next_state, :ready, data, {:reply, from, :ok}}
+    {:next_state, :ready, data, {:reply, from, {:ok, :halted}}}
   end
 
   ## Other

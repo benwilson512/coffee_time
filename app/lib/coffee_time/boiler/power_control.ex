@@ -19,8 +19,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
   @default_reheat_offset_c -5
   @reheat_increment_c 0.5
 
-  @db_key {__MODULE__, :target}
-
   defstruct target: 0,
             context: nil,
             target_duty_cycle: 0,
@@ -48,11 +46,9 @@ defmodule CoffeeTime.Boiler.PowerControl do
   end
 
   def init(context) do
-    stored_target = CubDB.get(name(context, :db), @db_key)
-
     data = %__MODULE__{
       context: context,
-      target: stored_target || 0,
+      target: 0,
       target_duty_cycle: 0
     }
 
@@ -74,31 +70,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
       true ->
         {:ok, :awaiting_boiler_fill, data}
     end
-  end
-
-  ## General Commands
-
-  def handle_event({:call, from}, {:set_target, target}, _state, data) do
-    Logger.info("Setting target: #{target}")
-
-    {response, data} =
-      if target < 128 do
-        CubDB.put(name(data.context, :db), @db_key, target)
-        {:ok, %{data | target: target}}
-      else
-        {{:error, :unsafe_target}, data}
-      end
-
-    {:keep_state, data, [{:reply, from, response}]}
-  end
-
-  def handle_event({:call, from}, :reheat_status, _state, data) do
-    response = %{
-      threshold: threshold(data),
-      hold_mode: data.hold_mode
-    }
-
-    {:keep_state_and_data, [{:reply, from, response}]}
   end
 
   ## Idle
@@ -162,6 +133,36 @@ defmodule CoffeeTime.Boiler.PowerControl do
       :low ->
         {:next_state, :awaiting_boiler_fill, data}
     end
+  end
+
+  ## General Commands
+
+  def handle_event({:call, from}, {:set_target, nil}, _state, data) do
+    data = %{data | target: nil, target_duty_cycle: 0}
+    set_duty_cycle!(data)
+    {:next_state, :idle, data, [{:reply, from, :ok}]}
+  end
+
+  def handle_event({:call, from}, {:set_target, target}, _state, data) do
+    Logger.info("Setting target: #{target}")
+
+    {response, data} =
+      if target < 128 do
+        {:ok, %{data | target: target}}
+      else
+        {{:error, :unsafe_target}, data}
+      end
+
+    {:keep_state, data, [{:reply, from, response}]}
+  end
+
+  def handle_event({:call, from}, :reheat_status, _state, data) do
+    response = %{
+      threshold: threshold(data),
+      hold_mode: data.hold_mode
+    }
+
+    {:keep_state_and_data, [{:reply, from, response}]}
   end
 
   ## General Handlers

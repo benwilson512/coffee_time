@@ -233,16 +233,15 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
     PubSub.subscribe(context, :boiler_duty_cycle)
     Measurement.Store.put(context, :boiler_fill_status, :full)
 
-    pid =
-      start_supervised!(
-        {CoffeeTime.Boiler,
-         %{
-           context: context,
-           intervals: %{
-             Boiler.DutyCycle => %{write_interval: :infinity}
-           }
-         }}
-      )
+    params = %{
+      context: context,
+      intervals: %{
+        Boiler.DutyCycle => %{write_interval: :infinity}
+      }
+    }
+
+    start_supervised!({Boiler.DutyCycle, params})
+    pid = start_supervised!({Boiler.PowerControl, params})
 
     # initial boot messages
     assert_receive({:broadcast, :boiler_duty_cycle, 0})
@@ -272,13 +271,15 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
   end
 
   def boot(%{context: context}) do
-    {:ok, _} =
-      CoffeeTime.Boiler.start_link(%{
-        context: context,
-        intervals: %{
-          Boiler.DutyCycle => %{write_interval: :infinity}
-        }
-      })
+    params = %{
+      context: context,
+      intervals: %{
+        Boiler.DutyCycle => %{write_interval: :infinity}
+      }
+    }
+
+    start_supervised!({Boiler.DutyCycle, params})
+    start_supervised!({Boiler.PowerControl, params})
 
     :ok
   end
