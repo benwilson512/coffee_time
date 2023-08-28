@@ -61,9 +61,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
     Measurement.Store.subscribe(data.context, :boiler_temp)
 
     cond do
-      CoffeeTime.Watchdog.get_fault(context) ->
-        {:ok, :idle, data}
-
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
         {:ok, :hold_target, data}
 

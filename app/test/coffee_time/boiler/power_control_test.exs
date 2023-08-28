@@ -21,9 +21,7 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
 
       assert_receive({:broadcast, :watchdog, :fault_state}, 200)
 
-      boot(%{context: context})
-
-      assert {:idle, _} = :sys.get_state(name(context, PowerControl))
+      assert :ignore == Boiler.start_link(%{context: context})
     end
 
     test "If there is no fault and a full boiler we move straigh to heating",

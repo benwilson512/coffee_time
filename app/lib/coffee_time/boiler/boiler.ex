@@ -15,9 +15,13 @@ defmodule CoffeeTime.Boiler do
   use Supervisor
 
   def start_link(%{context: context} = params) do
-    Supervisor.start_link(__MODULE__, params,
-      name: CoffeeTime.Application.name(context, __MODULE__)
-    )
+    if CoffeeTime.Watchdog.get_fault(context) do
+      :ignore
+    else
+      Supervisor.start_link(__MODULE__, params,
+        name: CoffeeTime.Application.name(context, __MODULE__)
+      )
+    end
   end
 
   @impl true

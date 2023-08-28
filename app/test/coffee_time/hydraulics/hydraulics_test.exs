@@ -23,9 +23,7 @@ defmodule CoffeeTime.HydraulicsTest do
 
       assert_receive({:broadcast, :watchdog, :fault_state})
 
-      {:ok, _} = Hydraulics.start_link(%{context: context})
-
-      assert {:idle, _} = :sys.get_state(name(context, Hydraulics))
+      :ignore = Hydraulics.start_link(%{context: context})
     end
 
     test "if there is no fault we are ready to do initial fill", %{context: context} do

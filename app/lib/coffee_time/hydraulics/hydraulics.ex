@@ -57,6 +57,7 @@ defmodule CoffeeTime.Hydraulics do
     |> GenStateMachine.call(:halt)
   end
 
+  @spec open_solenoid(atom | %{:root => any, optional(any) => any}, any) :: any
   @doc """
   Open a solenoid
   """
@@ -79,9 +80,13 @@ defmodule CoffeeTime.Hydraulics do
   end
 
   def start_link(%{context: context} = params) do
-    GenStateMachine.start_link(__MODULE__, params,
-      name: CoffeeTime.Application.name(context, __MODULE__)
-    )
+    if CoffeeTime.Watchdog.get_fault(context) do
+      :ignore
+    else
+      GenStateMachine.start_link(__MODULE__, params,
+        name: CoffeeTime.Application.name(context, __MODULE__)
+      )
+    end
   end
 
   def init(%{context: context} = params) do
@@ -95,9 +100,6 @@ defmodule CoffeeTime.Hydraulics do
     fill_status = Measurement.Store.get(context, :boiler_fill_status)
 
     cond do
-      CoffeeTime.Watchdog.get_fault(context) ->
-        {:ok, :idle, data}
-
       fill_status == :full ->
         {:ok, :ready, data}
 
