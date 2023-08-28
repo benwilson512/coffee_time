@@ -138,7 +138,8 @@ defmodule CoffeeTime.Boiler.PowerControl do
   ## General Commands
 
   def handle_event({:call, from}, {:set_target, nil}, _state, data) do
-    data = %{data | target: nil}
+    data = %{data | target: nil, target_duty_cycle: 0}
+    set_duty_cycle!(data)
     {:next_state, :idle, data, [{:reply, from, :ok}]}
   end
 
