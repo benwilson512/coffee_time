@@ -36,7 +36,7 @@ defmodule CoffeeTime.Watchdog do
     |> case do
       :cleared ->
         if Keyword.get(opts, :reboot, true) do
-          :init.stop()
+          Nerves.Runtime.reboot()
           :rebooting
         else
           :cleared
@@ -198,7 +198,7 @@ defmodule CoffeeTime.Watchdog do
   end
 
   @healthchecks [
-    :boiler_temp,
+    :boiler_pressure,
     :cpu_temp,
     :boiler_fill_status
   ]
@@ -297,7 +297,7 @@ defmodule CoffeeTime.Watchdog do
     File.write!(fault_file_path(state.context), Jason.encode!(fault))
 
     if state.reboot_on_fault do
-      :init.stop()
+      Nerves.Runtime.reboot()
     end
 
     %{state | fault: fault}

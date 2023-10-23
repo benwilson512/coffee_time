@@ -16,7 +16,8 @@ defmodule CoffeeTime.Boiler.PowerControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
-  @default_reheat_offset_c -5
+  @measurement :boiler_pressure
+  @default_reheat_offset_c 0
   @reheat_increment_c 0.5
 
   defstruct target: 0,
@@ -58,7 +59,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
-    Measurement.Store.subscribe(data.context, :boiler_temp)
+    Measurement.Store.subscribe(data.context, @measurement)
 
     cond do
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
@@ -106,13 +107,12 @@ defmodule CoffeeTime.Boiler.PowerControl do
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_target, prev_data) do
+  def handle_event(:info, {:broadcast, @measurement, val}, :hold_target, prev_data) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
     data =
       prev_data
-      |> adjust_hold_mode(val)
       |> adjust_target_duty_cycle(val)
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
@@ -144,7 +144,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     Logger.info("Setting target: #{target}")
 
     {response, data} =
-      if target < 128 do
+      if valid_target?(target) do
         {:ok, %{data | target: target}}
       else
         {{:error, :unsafe_target}, data}
@@ -192,32 +192,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
   defp set_duty_cycle!(%{target_duty_cycle: cycle, context: context}) do
     Logger.info("Changing duty cycle: #{cycle}")
     :ok = Boiler.DutyCycle.set(context, cycle)
-  end
-
-  def adjust_hold_mode(%{hold_mode: :reheat} = data, value) do
-    cond do
-      # We are fully heated up, so switch out of reheat mode
-      value >= data.target ->
-        switch_to_maintain(data)
-
-      data.reheat_offset == 0 ->
-        switch_to_maintain(data)
-
-      true ->
-        data
-    end
-  end
-
-  def adjust_hold_mode(data, value) do
-    if value < offset_threshold(data) do
-      Logger.notice("""
-      Boiler entering reheat mode.
-      """)
-
-      %{data | hold_mode: :reheat}
-    else
-      data
-    end
   end
 
   def adjust_target_duty_cycle(data, value) do
@@ -274,5 +248,15 @@ defmodule CoffeeTime.Boiler.PowerControl do
       | hold_mode: :maintain,
         reheat_offset: @default_reheat_offset_c
     }
+  end
+
+  if @measurement == :boiler_temp do
+    def valid_target?(target) do
+      target < 128
+    end
+  else
+    def valid_target?(target) do
+      target < 15000
+    end
   end
 end

@@ -41,6 +41,9 @@ defmodule CoffeeTime.Boiler.PowerManager do
     CubDB.get(name(context, :db), :boiler_power_manager)
   end
 
+  @ready_key :ready_pressure
+  @sleep_key :sleep_pressure
+
   def init(context) do
     data = %__MODULE__{
       context: context
@@ -83,7 +86,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    ready_temp = lookup_config(data.context)[:ready_temp]
+    ready_temp = lookup_config(data.context)[@ready_key]
     Boiler.PowerControl.set_target(data.context, ready_temp)
     :keep_state_and_data
   end
@@ -105,7 +108,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_temp = lookup_config(data.context)[:sleep_temp]
+    sleep_temp = lookup_config(data.context)[@sleep_key]
     Boiler.PowerControl.set_target(data.context, sleep_temp)
 
     :keep_state_and_data

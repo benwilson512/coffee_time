@@ -13,6 +13,10 @@ config :coffee_time, timezone: "America/New_York"
 
 config :logger, format: "$time $metadata[$level] $message\n"
 
+config :logger,
+  handle_sasl_reports: true,
+  handle_otp_reports: true
+
 # Customize non-Elixir parts of the firmware. See
 # https://hexdocs.pm/nerves/advanced-configuration.html for details.
 
