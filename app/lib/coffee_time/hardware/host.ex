@@ -32,6 +32,14 @@ defmodule CoffeeTime.Hardware.Host do
       100.0
     end
 
+    def open_i2c(_) do
+      make_ref()
+    end
+
+    def read_boiler_pressure_sender(_, _) do
+      9000
+    end
+
     def read_cpu_temperature(_) do
       35.0
     end

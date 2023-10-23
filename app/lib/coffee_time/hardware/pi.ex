@@ -24,13 +24,24 @@ defmodule CoffeeTime.Hardware.Pi do
               Map.new(@pin_layout, fn
                 {number, {name, io, opts}} ->
                   {name, {number, io, opts}}
-              end)
+              end),
+            i2c_channel: "i2c-1"
 
   defimpl CoffeeTime.Hardware do
     require Logger
 
     def read_boiler_probe_temp(_) do
       Max31865.get_temp()
+    end
+
+    def open_i2c(interface) do
+      {:ok, ref} = Circuits.I2C.open(interface.i2c_channel)
+      ref
+    end
+
+    def read_boiler_pressure_sender(_, ref) do
+      {:ok, pressure} = ADS1115.read(ref, 72, {:ain2, :gnd})
+      pressure
     end
 
     # TODO: some sort of mapping to support multiple 1 wire sensors

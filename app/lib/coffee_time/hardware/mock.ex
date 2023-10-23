@@ -17,6 +17,17 @@ defmodule CoffeeTime.Hardware.Mock do
       end
     end
 
+    def read_boiler_pressure_sender(_, _) do
+      receive do
+        {:boiler_pressure, val} ->
+          val
+      end
+    end
+
+    def open_i2c(_) do
+      make_ref()
+    end
+
     def read_cpu_temperature(_) do
       receive do
         {:cpu_temp, val} ->
