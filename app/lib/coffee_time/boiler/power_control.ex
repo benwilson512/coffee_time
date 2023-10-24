@@ -16,7 +16,6 @@ defmodule CoffeeTime.Boiler.PowerControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
-  @measurement :boiler_pressure
   @default_reheat_offset_c 0
   @reheat_increment_c 0.5
 
@@ -59,7 +58,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
-    Measurement.Store.subscribe(data.context, @measurement)
+    Measurement.Store.subscribe(data.context, :boiler_pressure)
 
     cond do
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
@@ -107,7 +106,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, @measurement, val}, :hold_target, prev_data) do
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :hold_target, prev_data) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
@@ -250,13 +249,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     }
   end
 
-  if @measurement == :boiler_temp do
-    def valid_target?(target) do
-      target < 128
-    end
-  else
-    def valid_target?(target) do
-      target < 15000
-    end
+  defp valid_target?(target) do
+    target < 15000
   end
 end
