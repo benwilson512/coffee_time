@@ -23,7 +23,7 @@ defmodule CoffeeTime.MeasurementTest do
   end
 
   describe "store can be written to by:" do
-    test "boiler temp sender", %{context: context} do
+    test "boiler pressure sender", %{context: context} do
       Measurement.Store.subscribe(context, :boiler_pressure)
       boiler_pid = lookup_pid(context, Measurement.BoilerPressureSender)
 
@@ -35,6 +35,7 @@ defmodule CoffeeTime.MeasurementTest do
       assert 9000 == Measurement.Store.fetch!(context, :boiler_pressure)
     end
 
+    @tag :boiler_temp
     test "boiler temp probe", %{context: context} do
       Measurement.Store.subscribe(context, :boiler_temp)
       boiler_pid = lookup_pid(context, Measurement.BoilerTempProbe)
