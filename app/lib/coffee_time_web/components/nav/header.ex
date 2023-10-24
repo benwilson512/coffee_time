@@ -33,13 +33,13 @@ defmodule CoffeeTimeWeb.Nav.Header do
   end
 
   def update(%{broadcast: {key, value}}, socket) do
-    %{hold_mode: hold_mode, threshold: threshold} =
-      CoffeeTime.Boiler.PowerControl.reheat_status(socket.assigns.context)
+    threshold =
+      CoffeeTime.Boiler.PowerControl.get_target(socket.assigns.context)
 
     socket =
       socket
       |> assign(key, to_string(trunc(value)))
-      |> assign(:hold_mode, hold_mode)
+      |> assign(:hold_mode, :maintain)
       |> assign(:threshold, threshold)
 
     {:ok, socket}

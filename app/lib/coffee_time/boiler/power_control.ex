@@ -16,16 +16,9 @@ defmodule CoffeeTime.Boiler.PowerControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
-  @default_reheat_offset_c 0
-  @reheat_increment_c 0.5
-
   defstruct target: 0,
             context: nil,
-            target_duty_cycle: 0,
-            hold_mode: :maintain,
-            reheat_timer: nil,
-            reheat_offset: @default_reheat_offset_c,
-            reheat_iteration: :timer.seconds(30)
+            target_duty_cycle: 0
 
   def set_target(context, val) do
     context
@@ -33,10 +26,10 @@ defmodule CoffeeTime.Boiler.PowerControl do
     |> GenStateMachine.call({:set_target, val})
   end
 
-  def reheat_status(context) do
+  def get_target(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call(:reheat_status)
+    |> GenStateMachine.call(:get_target)
   end
 
   def start_link(%{context: context}) do
@@ -111,8 +104,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
     data =
-      prev_data
-      |> adjust_target_duty_cycle(val)
+      adjust_target_duty_cycle(prev_data, val)
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
       set_duty_cycle!(data)
@@ -152,35 +144,12 @@ defmodule CoffeeTime.Boiler.PowerControl do
     {:keep_state, data, [{:reply, from, response}]}
   end
 
-  def handle_event({:call, from}, :reheat_status, _state, data) do
-    response = %{
-      threshold: threshold(data),
-      hold_mode: data.hold_mode
-    }
-
-    {:keep_state_and_data, [{:reply, from, response}]}
+  def handle_event({:call, from}, :get_target, _state, data) do
+    {:keep_state_and_data, [{:reply, from, data.target}]}
   end
 
   ## General Handlers
   ##############################
-
-  def handle_event(:info, {:reheat_increment, increment}, _, data) do
-    data =
-      data
-      |> Map.update!(:reheat_offset, fn offset ->
-        min(offset + increment, 0)
-      end)
-      |> cancel_reheat_timer
-      |> case do
-        %{reheat_offset: offset} = data when offset == 0 ->
-          switch_to_maintain(data)
-
-        data ->
-          data
-      end
-
-    {:keep_state, data}
-  end
 
   def handle_event(:enter, old_state, new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
@@ -194,59 +163,11 @@ defmodule CoffeeTime.Boiler.PowerControl do
   end
 
   def adjust_target_duty_cycle(data, value) do
-    if value < threshold(data) do
+    if value < data.target do
       %{data | target_duty_cycle: 10}
     else
-      data
-      |> Map.replace(:target_duty_cycle, 0)
-      |> maybe_set_reheat_timer()
+      %{data | target_duty_cycle: 0}
     end
-  end
-
-  def threshold(data) do
-    case data.hold_mode do
-      :maintain -> data.target
-      :reheat -> offset_threshold(data)
-    end
-  end
-
-  defp offset_threshold(data) do
-    data.target + data.reheat_offset
-  end
-
-  def maybe_set_reheat_timer(data) do
-    case data do
-      %{hold_mode: :reheat, reheat_timer: nil} ->
-        timer =
-          Util.send_after(
-            self(),
-            {:reheat_increment, @reheat_increment_c},
-            data.reheat_iteration
-          )
-
-        %{data | reheat_timer: timer}
-
-      _ ->
-        data
-    end
-  end
-
-  defp cancel_reheat_timer(data) do
-    if timer = data.reheat_timer do
-      Util.cancel_timer(timer)
-    end
-
-    %{data | reheat_timer: nil}
-  end
-
-  defp switch_to_maintain(data) do
-    data = cancel_reheat_timer(data)
-
-    %{
-      data
-      | hold_mode: :maintain,
-        reheat_offset: @default_reheat_offset_c
-    }
   end
 
   defp valid_target?(target) do
