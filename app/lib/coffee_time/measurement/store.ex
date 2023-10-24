@@ -42,6 +42,11 @@ defmodule CoffeeTime.Measurement.Store do
     :ok
   end
 
+  def unsubscribe(%Context{} = context, key) do
+    PubSub.unsubscribe(context, key)
+    :ok
+  end
+
   @spec fetch!(CoffeeTime.Context.t(), known_measurement()) :: term
   def fetch!(context, key) do
     case take(context, [key]) do

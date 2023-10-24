@@ -15,9 +15,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
   alias CoffeeTime.PubSub
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
+  alias CoffeeTime.Measurement
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil
+  defstruct context: nil, config: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -41,17 +42,22 @@ defmodule CoffeeTime.Boiler.PowerManager do
     CubDB.get(name(context, :db), :boiler_power_manager)
   end
 
-  @ready_key :ready_pressure
-  @sleep_key :sleep_pressure
+  def replace_config(context, key, value) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call({:replace_config, key, value})
+  end
 
   def init(context) do
+    config = lookup_config(context)
+
     data = %__MODULE__{
-      context: context
+      context: context,
+      config: config
     }
 
     PubSub.subscribe(context, :barista)
 
-    config = lookup_config(context)
     now = DateTime.utc_now() |> DateTime.shift_zone!(timezone())
     state = init_state(config, now)
 
@@ -86,20 +92,50 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    ready_temp = lookup_config(data.context)[@ready_key]
-    Boiler.PowerControl.set_target(data.context, ready_temp)
+    ready_target = data.config[:ready_pressure]
+    Boiler.PowerControl.set_target(data.context, ready_target)
+
+    Measurement.Store.subscribe(data.context, :boiler_pressure)
+
     :keep_state_and_data
   end
 
-  def handle_event({:call, from}, :sleep, :ready, data) do
-    {:next_state, :sleep, data, {:reply, from, :ok}}
-  end
-
-  def handle_event({:call, from}, :wake, :ready, _) do
-    {:keep_state_and_data, {:reply, from, :ok}}
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, data) do
+    if val < 10000 do
+      {:next_state, :active, data}
+    else
+      :keep_state_and_data
+    end
   end
 
   def handle_event(:info, _, :ready, _) do
+    :keep_state_and_data
+  end
+
+  ## Active
+  ######################
+
+  def handle_event(:enter, old_state, :active, data) do
+    Util.log_state_change(__MODULE__, old_state, :ready)
+    active_target = data.context[:active_pressure]
+    Boiler.PowerControl.set_target(data.context, active_target)
+
+    :keep_state_and_data
+  end
+
+  def handle_event({:call, from}, :wake, :active, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :active, data) do
+    if val < 10000 do
+      {:next_state, :active, data}
+    else
+      :keep_state_and_data
+    end
+  end
+
+  def handle_event(:info, _, :active, _) do
     :keep_state_and_data
   end
 
@@ -108,8 +144,8 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_temp = lookup_config(data.context)[@sleep_key]
-    Boiler.PowerControl.set_target(data.context, sleep_temp)
+    sleep_target = data.context[:sleep_pressure]
+    Boiler.PowerControl.set_target(data.context, sleep_target)
 
     :keep_state_and_data
   end
@@ -139,6 +175,24 @@ defmodule CoffeeTime.Boiler.PowerManager do
     Util.log_state_change(__MODULE__, old_state, new_state)
 
     {:keep_state, data}
+  end
+
+  def handle_event({:call, from}, {:replace_config, key, value}, _, data) do
+    new_config = Keyword.replace(data.config, key, value)
+    data = %{data | config: new_config}
+
+    CubDB.put(name(data.context, :db), :boiler_power_manager, new_config)
+
+    {:keep_state, data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :sleep, _, data) do
+    Measurement.Store.unsubscribe(data.context, :boiler_pressure)
+    {:next_state, :sleep, data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :wake, _, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
   end
 
   ## Helpers
