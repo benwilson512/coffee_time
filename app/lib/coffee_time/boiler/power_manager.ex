@@ -101,7 +101,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, data) do
-    if val < 10000 do
+    if val < data.config.active_trigger_threshold do
       {:next_state, :active, data}
     else
       :keep_state_and_data
@@ -116,27 +116,24 @@ defmodule CoffeeTime.Boiler.PowerManager do
   ######################
 
   def handle_event(:enter, old_state, :active, data) do
-    Util.log_state_change(__MODULE__, old_state, :ready)
-    active_target = data.context[:active_pressure]
+    Util.log_state_change(__MODULE__, old_state, :active)
+    active_target = data.config.active_pressure
     Boiler.PowerControl.set_target(data.context, active_target)
 
     :keep_state_and_data
   end
 
-  def handle_event({:call, from}, :wake, :active, _) do
-    {:keep_state_and_data, {:reply, from, :ok}}
-  end
-
   def handle_event(:info, {:broadcast, :boiler_pressure, val}, :active, data) do
-    if val < 10000 do
-      {:next_state, :active, data}
-    else
-      :keep_state_and_data
+    if val >= data.config.active_pressure do
+      Util.send_after(self(), :relax, data.config.active_duration)
     end
+
+    # TODO: bump the timer if the val remains below our target
+    :keep_state_and_data
   end
 
-  def handle_event(:info, _, :active, _) do
-    :keep_state_and_data
+  def handle_event(:info, :relax, :active, data) do
+    {:next_state, :ready, data}
   end
 
   ## Sleeping
@@ -144,7 +141,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_target = data.context[:sleep_pressure]
+    sleep_target = data.config[:sleep_pressure]
     Boiler.PowerControl.set_target(data.context, sleep_target)
 
     :keep_state_and_data
@@ -178,12 +175,18 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event({:call, from}, {:replace_config, key, value}, _, data) do
-    new_config = Keyword.replace(data.config, key, value)
+    old_config = data.config
+    new_config = Map.replace(old_config, key, value)
     data = %{data | config: new_config}
 
     CubDB.put(name(data.context, :db), :boiler_power_manager, new_config)
 
-    {:keep_state, data, {:reply, from, :ok}}
+    reply = [
+      old: old_config[key],
+      new: new_config[key]
+    ]
+
+    {:next_state, :sleep, data, {:reply, from, reply}}
   end
 
   def handle_event({:call, from}, :sleep, _, data) do
@@ -193,6 +196,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event({:call, from}, :wake, _, _) do
     {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, _, _, _) do
+    :keep_state_and_data
   end
 
   ## Helpers
