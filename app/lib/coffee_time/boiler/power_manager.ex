@@ -18,7 +18,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   alias CoffeeTime.Measurement
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil, config: nil
+  defstruct context: nil, config: nil, prev_pressure: 0, active_timer: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -40,6 +40,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def lookup_config(context) do
     CubDB.get(name(context, :db), :boiler_power_manager)
+  end
+
+  def __set_config__(context, config) do
+    CubDB.put(name(context, :db), :boiler_power_manager, config)
   end
 
   def replace_config(context, key, value) do
@@ -92,19 +96,27 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :ready, data) do
     Util.log_state_change(__MODULE__, old_state, :ready)
-    ready_target = data.config[:ready_pressure]
+    ready_target = data.config.ready_pressure
     Boiler.PowerControl.set_target(data.context, ready_target)
 
     Measurement.Store.subscribe(data.context, :boiler_pressure)
+    data = cancel_timer(%{data | prev_pressure: 0})
 
-    :keep_state_and_data
+    {:keep_state, %{data | prev_pressure: 0}}
   end
 
-  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, data) do
-    if val < data.config.active_trigger_threshold do
-      {:next_state, :active, data}
-    else
-      :keep_state_and_data
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, prev_data) do
+    new_data = %{prev_data | prev_pressure: val}
+
+    cond do
+      in_use_pressure_drop?(prev_data, val) ->
+        {:next_state, :active, new_data}
+
+      val < prev_data.config.active_trigger_threshold ->
+        {:next_state, :active, new_data}
+
+      true ->
+        {:keep_state, new_data}
     end
   end
 
@@ -123,16 +135,39 @@ defmodule CoffeeTime.Boiler.PowerManager do
     :keep_state_and_data
   end
 
-  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :active, data) do
-    if val >= data.config.active_pressure do
-      Util.send_after(self(), :relax, data.config.active_duration)
-    end
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :active, prev_data) do
+    new_data = %{prev_data | prev_pressure: val}
+
+    new_data =
+      cond do
+        # if we experience a notable drop in pressure
+        # then that means we are in active use and we should
+        # reset the timer
+        in_use_pressure_drop?(prev_data, val) ->
+          Logger.debug("""
+          Bumping active timer
+          """)
+
+          new_data
+          |> cancel_timer()
+          |> start_timer()
+
+        # if we get above the target value then we can start
+        # the timer for returning to ready. `start_timer` is
+        # idempotent and will not change a timer if one is already
+        # running
+        val >= new_data.config.active_pressure ->
+          start_timer(new_data)
+
+        true ->
+          new_data
+      end
 
     # TODO: bump the timer if the val remains below our target
-    :keep_state_and_data
+    {:keep_state, new_data}
   end
 
-  def handle_event(:info, :relax, :active, data) do
+  def handle_event(:info, :deactivate, :active, data) do
     {:next_state, :ready, data}
   end
 
@@ -179,7 +214,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
     new_config = Map.replace(old_config, key, value)
     data = %{data | config: new_config}
 
-    CubDB.put(name(data.context, :db), :boiler_power_manager, new_config)
+    __set_config__(data.context, new_config)
 
     reply = [
       old: old_config[key],
@@ -229,5 +264,27 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   defp timezone() do
     Application.fetch_env!(:coffee_time, :timezone)
+  end
+
+  defp cancel_timer(data) do
+    if ref = data.active_timer do
+      Util.cancel_timer(ref)
+      %{data | active_timer: nil}
+    else
+      data
+    end
+  end
+
+  defp start_timer(data) do
+    if data.active_timer do
+      data
+    else
+      timer = Util.send_after(self(), :deactivate, data.config.active_duration)
+      %{data | active_timer: timer}
+    end
+  end
+
+  defp in_use_pressure_drop?(prev_data, val) do
+    prev_data.prev_pressure - val > 75
   end
 end
