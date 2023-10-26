@@ -106,17 +106,22 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, prev_data) do
-    new_data = %{prev_data | prev_pressure: val}
+    data = %{prev_data | prev_pressure: val}
 
     cond do
       in_use_pressure_drop?(prev_data, val) ->
-        {:next_state, :active, new_data}
+        {:next_state, :active, data}
 
-      val < prev_data.config.active_trigger_threshold ->
-        {:next_state, :active, new_data}
+      # I sort of want to get rid of this, but it plays a helpful
+      # role in upgrading the target to the active level on boot.
+      # We could have wake and init both jump to active, which might be fine.
+      # However we really need to sort out deduped subscriptions to make
+      # that work properly.
+      val < data.config.active_trigger_threshold ->
+        {:next_state, :active, data}
 
       true ->
-        {:keep_state, new_data}
+        {:keep_state, data}
     end
   end
 
