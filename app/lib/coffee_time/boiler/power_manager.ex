@@ -17,8 +17,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
   alias CoffeeTime.Util
   alias CoffeeTime.Measurement
 
+  alias __MODULE__.Config
+
   # TODO: make these configurable without recompiling
-  defstruct context: nil, config: nil, prev_pressure: 0, active_timer: nil
+  defstruct context: nil, config: %Config{}, prev_pressure: 0, active_timer: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -74,14 +76,14 @@ defmodule CoffeeTime.Boiler.PowerManager do
     if sleep_time?(config, now) do
       :sleep
     else
-      :ready
+      :idle
     end
   end
 
   def sleep_time?(config, now) do
     current_time = DateTime.to_time(now)
 
-    case config[:power_saver_interval] do
+    case config.power_saver_interval do
       {from = %Time{}, to = %Time{}} ->
         # the awake time is between from and to, so sleep time is not awake time.
         not compare?(to <= current_time <= from, Time)
@@ -91,13 +93,13 @@ defmodule CoffeeTime.Boiler.PowerManager do
     end
   end
 
-  ## Ready
+  ## Idle
   ######################
 
-  def handle_event(:enter, old_state, :ready, data) do
-    Util.log_state_change(__MODULE__, old_state, :ready)
-    ready_target = data.config.ready_pressure
-    Boiler.PowerControl.set_target(data.context, ready_target)
+  def handle_event(:enter, old_state, :idle, data) do
+    Util.log_state_change(__MODULE__, old_state, :idle)
+    idle_target = data.config.idle_pressure
+    Boiler.PowerControl.set_target(data.context, idle_target)
 
     Measurement.Store.subscribe(data.context, :boiler_pressure)
     data = cancel_timer(%{data | prev_pressure: 0})
@@ -105,7 +107,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
     {:keep_state, %{data | prev_pressure: 0}}
   end
 
-  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :ready, prev_data) do
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :idle, prev_data) do
     data = %{prev_data | prev_pressure: val}
 
     cond do
@@ -125,7 +127,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
     end
   end
 
-  def handle_event(:info, _, :ready, _) do
+  def handle_event(:info, _, :idle, _) do
     :keep_state_and_data
   end
 
@@ -158,7 +160,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
           |> start_timer()
 
         # if we get above the target value then we can start
-        # the timer for returning to ready. `start_timer` is
+        # the timer for returning to idle. `start_timer` is
         # idempotent and will not change a timer if one is already
         # running
         val >= new_data.config.active_pressure ->
@@ -173,7 +175,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event(:info, :deactivate, :active, data) do
-    {:next_state, :ready, data}
+    {:next_state, :idle, data}
   end
 
   ## Sleeping
@@ -187,10 +189,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
     :keep_state_and_data
   end
 
-  # If we start doing something we should kick out of sleep and enter the ready
+  # If we start doing something we should kick out of sleep and enter the idle
   # state
   def handle_event(:info, {:broadcast, :barista, {:program_start, _}}, :sleep, data) do
-    {:next_state, :ready, data}
+    {:next_state, :idle, data}
   end
 
   def handle_event(:info, {:broadcast, :barista, _}, :sleep, _) do
@@ -198,7 +200,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event({:call, from}, :wake, :sleep, data) do
-    {:next_state, :ready, data, {:reply, from, :ok}}
+    {:next_state, :idle, data, {:reply, from, :ok}}
   end
 
   def handle_event({:call, from}, :sleep, :sleep, _) do
@@ -248,7 +250,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   defp set_quantum_jobs(context, config) do
     import Crontab.CronExpression
 
-    case config[:power_saver_interval] do
+    case config.power_saver_interval do
       {from = %Time{}, to = %Time{}} ->
         set_job(:sleep, ~e[#{from.minute} #{from.hour} * * *], fn -> sleep(context) end)
         set_job(:wake, ~e[#{to.minute} #{to.hour} * * *], fn -> wake(context) end)
