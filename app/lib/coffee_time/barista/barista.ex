@@ -98,9 +98,6 @@ defmodule CoffeeTime.Barista do
   def init(%{context: context}) do
     state = %__MODULE__{context: context}
 
-    # This module doesn't need an `:idle` state since it doesn't directly control anything. If you ask
-    # the barista process to try to run a program while the hydraulics or temp control is idle due to
-    # a fault it will simply crash. No need to manage it in a fancy way.
     {:ok, :ready, state}
   end
 
