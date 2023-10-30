@@ -164,7 +164,6 @@ defmodule CoffeeTime.Boiler.PowerManager do
           new_data
       end
 
-    # TODO: bump the timer if the val remains below our target
     {:keep_state, new_data}
   end
 
