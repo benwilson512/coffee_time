@@ -120,6 +120,26 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
     end
   end
 
+  describe "sleep" do
+    setup [:boot, :activate]
+
+    @describetag config: %Config{
+                   idle_pressure: 10300,
+                   active_trigger_threshold: 9000,
+                   active_pressure: 12000,
+                   sleep_pressure: 0,
+                   active_duration: 20
+                 }
+
+    test "going into sleep mode sets sleep pressure", %{context: context} do
+      PowerManager.sleep(context)
+      assert {:sleep, _} = get_state(context, PowerManager)
+
+      assert {:hold_target, %{target: 0}} =
+               get_state(context, Boiler.PowerControl)
+    end
+  end
+
   def boot(%{context: context} = test_context) do
     config = test_context[:config] || %Config{}
 

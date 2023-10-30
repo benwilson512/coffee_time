@@ -55,7 +55,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def init(context) do
-    config = lookup_config(context) || seed_config(context)
+    config = init_config(context)
 
     data = %__MODULE__{
       context: context,
@@ -177,7 +177,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_target = data.config[:sleep_pressure]
+    sleep_target = data.config.sleep_pressure
     Boiler.PowerControl.set_target(data.context, sleep_target)
 
     :keep_state_and_data
@@ -289,8 +289,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
     prev_data.prev_pressure - val > 75
   end
 
-  defp seed_config(context) do
-    config = %Config{}
+  defp init_config(context) do
+    config = lookup_config(context) || %Config{}
+    # this is terrible
+    config = struct(Config, Map.take(config, Map.keys(%Config{}) -- [:__struct__]))
     __set_config__(context, config)
     config
   end
