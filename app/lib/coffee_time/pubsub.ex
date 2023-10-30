@@ -21,7 +21,6 @@ defmodule CoffeeTime.PubSub do
       if fun = opts[:on_broadcast] do
         fun.(pid, key, value)
       else
-        # IO.puts("sending #{inspect(pid)}, #{inspect({key, value})}")
         send(pid, {:broadcast, key, value})
       end
     end

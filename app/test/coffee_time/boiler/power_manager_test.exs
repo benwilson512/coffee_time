@@ -112,6 +112,10 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
     start_supervised!({Boiler.PowerControl, params})
     start_supervised!({PowerManager, params})
 
+    # We do this to ensure that the PowerManager has fully booted and
+    # is responding to messages
+    _ = get_state(context, PowerManager)
+
     :ok
   end
 
