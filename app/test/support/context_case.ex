@@ -3,7 +3,7 @@ defmodule CoffeeTime.ContextCase do
 
   using do
     quote do
-      import unquote(__MODULE__), only: [lookup_pid: 2, flush: 0]
+      import unquote(__MODULE__), only: [lookup_pid: 2, flush: 0, get_state: 2]
       import CoffeeTime.Application, only: [name: 2]
     end
   end
@@ -11,6 +11,10 @@ defmodule CoffeeTime.ContextCase do
   def lookup_pid(context, name) do
     [{pid, _}] = Registry.lookup(context.registry, name)
     pid
+  end
+
+  def get_state(context, name) do
+    :sys.get_state(CoffeeTime.Application.name(context, name))
   end
 
   def flush() do

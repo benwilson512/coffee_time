@@ -1,8 +1,6 @@
 defmodule CoffeeTime.Boiler.PowerManagerTest do
   use CoffeeTime.ContextCase, async: true
 
-  import CoffeeTime.Application, only: [name: 2]
-
   alias CoffeeTime.Boiler.PowerManager
   alias CoffeeTime.Boiler.PowerManager.Config
   alias CoffeeTime.Boiler
@@ -21,10 +19,10 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
     } do
       target = config.idle_pressure
       # should be idle
-      assert {:idle, _} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:idle, _} = get_state(context, PowerManager)
       # the power control should be set to our idle value
       assert {:hold_target, %{target: ^target}} =
-               :sys.get_state(name(context, Boiler.PowerControl))
+               get_state(context, Boiler.PowerControl)
     end
   end
 
@@ -41,25 +39,25 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
       config: config
     } do
       # should be idle
-      assert {:idle, _} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:idle, %{prev_pressure: 0}} = get_state(context, PowerManager)
 
       # send some pressure below our trigger
       Measurement.Store.put(context, :boiler_pressure, config.active_trigger_threshold - 1)
 
       # should be idle
-      assert {:active, _} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:active, _} = get_state(context, PowerManager)
     end
 
     test "pressure drop less than 100 does nothing", %{context: context} do
       Measurement.Store.put(context, :boiler_pressure, 10300)
 
       # should be idle
-      assert {:idle, %{prev_pressure: 10300}} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:idle, %{prev_pressure: 10300}} = get_state(context, PowerManager)
 
       Measurement.Store.put(context, :boiler_pressure, 10250)
 
       # should still be idle
-      assert {:idle, %{prev_pressure: 10250}} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:idle, %{prev_pressure: 10250}} = get_state(context, PowerManager)
     end
 
     test "pressure drop more than 100 should put us in active", %{
@@ -69,16 +67,31 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
       Measurement.Store.put(context, :boiler_pressure, 10300)
 
       # should be idle
-      assert {:idle, %{prev_pressure: 10300}} = :sys.get_state(name(context, Boiler.PowerManager))
+      assert {:idle, %{prev_pressure: 10300}} = get_state(context, PowerManager)
 
       Measurement.Store.put(context, :boiler_pressure, 10150)
 
       assert {:active, %{prev_pressure: 10150}} =
-               :sys.get_state(name(context, Boiler.PowerManager))
+               get_state(context, PowerManager)
 
       # the power control should be set to our active value
       assert {:hold_target, %{target: ^active_target}} =
-               :sys.get_state(name(context, Boiler.PowerControl))
+               get_state(context, Boiler.PowerControl)
+    end
+  end
+
+  describe "active" do
+    setup [:boot, :activate]
+
+    @describetag config: %Config{
+                   idle_pressure: 10300,
+                   active_trigger_threshold: 9000,
+                   active_pressure: 12000,
+                   active_duration: :infinity
+                 }
+
+    test "activate sets a timer once we get pressure above target", %{context: context} do
+      assert {:active, %{active_timer: nil}} = get_state(context, PowerManager)
     end
   end
 
@@ -97,8 +110,13 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
 
     start_supervised!({Boiler.DutyCycle, params})
     start_supervised!({Boiler.PowerControl, params})
-    start_supervised!({Boiler.PowerManager, params})
+    start_supervised!({PowerManager, params})
 
+    :ok
+  end
+
+  def activate(%{context: context, config: config}) do
+    Measurement.Store.put(context, :boiler_pressure, config.active_trigger_threshold - 1)
     :ok
   end
 end
