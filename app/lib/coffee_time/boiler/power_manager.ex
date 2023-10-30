@@ -19,8 +19,11 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   alias __MODULE__.Config
 
-  # TODO: make these configurable without recompiling
-  defstruct context: nil, config: %Config{}, prev_pressure: 0, active_timer: nil
+  defstruct context: nil,
+            config: %Config{},
+            prev_pressure: 0,
+            active_timer: nil,
+            refill_timer: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -98,10 +101,12 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :idle, data) do
     Util.log_state_change(__MODULE__, old_state, :idle)
-    idle_target = data.config.idle_pressure
-    Boiler.PowerControl.set_target(data.context, idle_target)
 
+    Boiler.PowerControl.set_target(data.context, data.config.idle_pressure)
+
+    PubSub.subscribe(data.context, :refill_solenoid)
     Measurement.Store.subscribe(data.context, :boiler_pressure)
+
     data = cancel_timer(%{data | prev_pressure: 0})
 
     {:keep_state, %{data | prev_pressure: 0}}
@@ -111,6 +116,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
     data = %{prev_data | prev_pressure: val}
 
     cond do
+      # We just refilled, we need to give it a moment to reheat
+      data.refill_timer ->
+        {:keep_state, data}
+
       in_use_pressure_drop?(prev_data, val) ->
         {:next_state, :active, data}
 
@@ -125,6 +134,19 @@ defmodule CoffeeTime.Boiler.PowerManager do
       true ->
         {:keep_state, data}
     end
+  end
+
+  def handle_event(:info, {:broadcast, :refill_solenoid, :open}, :idle, data) do
+    {:keep_state, %{data | refill_timer: :pending}}
+  end
+
+  def handle_event(:info, {:broadcast, :refill_solenoid, :close}, :idle, data) do
+    timer = Util.send_after(self(), :refilled, data.config.refill_grace_period)
+    {:keep_state, %{data | refill_timer: timer}}
+  end
+
+  def handle_event(:info, :refilled, :idle, data) do
+    {:keep_state, %{data | refill_timer: nil}}
   end
 
   def handle_event(:info, _, :idle, _) do

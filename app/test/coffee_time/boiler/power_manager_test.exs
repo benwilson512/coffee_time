@@ -4,6 +4,7 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
   alias CoffeeTime.Boiler.PowerManager
   alias CoffeeTime.Boiler.PowerManager.Config
   alias CoffeeTime.Boiler
+  alias CoffeeTime.PubSub
   alias CoffeeTime.Measurement
 
   @moduletag :measurement_store
@@ -117,6 +118,42 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
       Measurement.Store.put(context, :boiler_pressure, 12001 - 101)
 
       assert {:active, %{active_timer: nil}} = get_state(context, PowerManager)
+    end
+  end
+
+  describe "refill grace period" do
+    setup [:boot]
+
+    @describetag config: %Config{
+                   idle_pressure: 10300,
+                   active_trigger_threshold: 9000,
+                   active_pressure: 12000,
+                   sleep_pressure: 0,
+                   refill_grace_period: 30
+                 }
+
+    test "we ignore pressure drops for a bit after a refill", %{context: context} do
+      Measurement.Store.put(context, :boiler_pressure, 10300)
+
+      # should be idle
+      assert {:idle, %{prev_pressure: 10300}} = get_state(context, PowerManager)
+
+      # We learn that the refill solenoid is open and then we get a low pressure
+      # drop
+      PubSub.broadcast(context, :refill_solenoid, :open)
+      Measurement.Store.put(context, :boiler_pressure, 10150)
+
+      assert {:idle, %{refill_timer: :pending}} = get_state(context, PowerManager)
+      PubSub.broadcast(context, :refill_solenoid, :close)
+      assert {:idle, %{refill_timer: timer}} = get_state(context, PowerManager)
+      assert timer && timer != :pending
+
+      send(lookup_pid(context, PowerManager), :refilled)
+      assert {:idle, %{refill_timer: nil}} = get_state(context, PowerManager)
+
+      # do another pressure drop and we should activate now
+      Measurement.Store.put(context, :boiler_pressure, 10000)
+      assert {:active, _} = get_state(context, PowerManager)
     end
   end
 
