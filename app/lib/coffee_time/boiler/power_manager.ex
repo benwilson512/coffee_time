@@ -55,7 +55,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def init(context) do
-    config = lookup_config(context)
+    config = lookup_config(context) || seed_config(context)
 
     data = %__MODULE__{
       context: context,
@@ -293,5 +293,11 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   defp in_use_pressure_drop?(prev_data, val) do
     prev_data.prev_pressure - val > 75
+  end
+
+  defp seed_config(context) do
+    config = %Config{}
+    __set_config__(context, config)
+    config
   end
 end
