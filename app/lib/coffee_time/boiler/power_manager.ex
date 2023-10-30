@@ -76,8 +76,6 @@ defmodule CoffeeTime.Boiler.PowerManager do
       config: config
     }
 
-    PubSub.subscribe(context, :barista)
-
     now = DateTime.utc_now() |> DateTime.shift_zone!(timezone())
     state = init_state(config, now)
 
@@ -115,10 +113,10 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
     Boiler.PowerControl.set_target(data.context, data.config.idle_pressure)
 
+    data = reset_timers_and_subs(data)
+
     PubSub.subscribe(data.context, :refill_solenoid)
     Measurement.Store.subscribe(data.context, :boiler_pressure)
-
-    data = cancel_timer(%{data | prev_pressure: 0})
 
     {:keep_state, %{data | prev_pressure: 0}}
   end
@@ -148,6 +146,8 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event(:info, {:broadcast, :refill_solenoid, :open}, :idle, data) do
+    # In theory we could have a timer going already
+    data = Util.cancel_self_timer(data, :refill_timer)
     {:keep_state, %{data | refill_timer: :pending}}
   end
 
@@ -184,14 +184,19 @@ defmodule CoffeeTime.Boiler.PowerManager do
         # then that means we are in active use and we should
         # cancel the timer until we are back to temp
         in_use_pressure_drop?(prev_data, val) ->
-          cancel_timer(new_data)
+          Util.cancel_self_timer(new_data, :active_timer)
 
         # if we get above the target value then we can start
         # the timer for returning to idle. `start_timer` is
         # idempotent and will not change a timer if one is already
         # running
         val >= new_data.config.active_pressure ->
-          start_timer(new_data)
+          Util.start_self_timer(
+            new_data,
+            :active_timer,
+            :deactivate,
+            new_data.config.active_duration
+          )
 
         true ->
           new_data
@@ -209,10 +214,13 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_target = data.config.sleep_pressure
-    Boiler.PowerControl.set_target(data.context, sleep_target)
 
-    :keep_state_and_data
+    Boiler.PowerControl.set_target(data.context, data.config.sleep_pressure)
+
+    data = reset_timers_and_subs(data)
+    PubSub.subscribe(data.context, :barista)
+
+    {:keep_state, data}
   end
 
   # If we start doing something we should kick out of sleep and enter the idle
@@ -266,12 +274,28 @@ defmodule CoffeeTime.Boiler.PowerManager do
     {:keep_state_and_data, {:reply, from, :ok}}
   end
 
-  def handle_event(:info, _, _, _) do
+  def handle_event(:info, msg, _, _) do
+    Logger.warning("""
+    unexpected message
+
+    #{inspect(msg)}
+    """)
+
     :keep_state_and_data
   end
 
   ## Helpers
   ################
+
+  defp reset_timers_and_subs(%{context: context} = data) do
+    Measurement.Store.unsubscribe(data.context, :boiler_pressure)
+    PubSub.unsubscribe(context, :barista)
+    PubSub.unsubscribe(context, :refill_solenoid)
+
+    data
+    |> Util.cancel_self_timer(:active_timer)
+    |> Util.cancel_self_timer(:refill_timer)
+  end
 
   defp set_quantum_jobs(context, config) do
     import Crontab.CronExpression
@@ -305,15 +329,6 @@ defmodule CoffeeTime.Boiler.PowerManager do
       %{data | active_timer: nil}
     else
       data
-    end
-  end
-
-  defp start_timer(data) do
-    if data.active_timer do
-      data
-    else
-      timer = Util.send_after(self(), :deactivate, data.config.active_duration)
-      %{data | active_timer: timer}
     end
   end
 
