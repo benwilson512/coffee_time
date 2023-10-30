@@ -15,9 +15,12 @@ defmodule CoffeeTime.Boiler.PowerManager do
   alias CoffeeTime.PubSub
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
+  alias CoffeeTime.Measurement
+
+  alias __MODULE__.Config
 
   # TODO: make these configurable without recompiling
-  defstruct context: nil
+  defstruct context: nil, config: %Config{}, prev_pressure: 0, active_timer: nil
 
   def start_link(%{context: context}) do
     GenStateMachine.start_link(__MODULE__, context,
@@ -41,14 +44,26 @@ defmodule CoffeeTime.Boiler.PowerManager do
     CubDB.get(name(context, :db), :boiler_power_manager)
   end
 
+  def __set_config__(context, config) do
+    CubDB.put(name(context, :db), :boiler_power_manager, config)
+  end
+
+  def replace_config(context, key, value) do
+    context
+    |> name(__MODULE__)
+    |> GenStateMachine.call({:replace_config, key, value})
+  end
+
   def init(context) do
+    config = init_config(context)
+
     data = %__MODULE__{
-      context: context
+      context: context,
+      config: config
     }
 
     PubSub.subscribe(context, :barista)
 
-    config = lookup_config(context)
     now = DateTime.utc_now() |> DateTime.shift_zone!(timezone())
     state = init_state(config, now)
 
@@ -61,14 +76,14 @@ defmodule CoffeeTime.Boiler.PowerManager do
     if sleep_time?(config, now) do
       :sleep
     else
-      :ready
+      :idle
     end
   end
 
   def sleep_time?(config, now) do
     current_time = DateTime.to_time(now)
 
-    case config[:power_saver_interval] do
+    case config.power_saver_interval do
       {from = %Time{}, to = %Time{}} ->
         # the awake time is between from and to, so sleep time is not awake time.
         not compare?(to <= current_time <= from, Time)
@@ -78,26 +93,83 @@ defmodule CoffeeTime.Boiler.PowerManager do
     end
   end
 
-  ## Ready
+  ## Idle
   ######################
 
-  def handle_event(:enter, old_state, :ready, data) do
-    Util.log_state_change(__MODULE__, old_state, :ready)
-    ready_temp = lookup_config(data.context)[:ready_temp]
-    Boiler.PowerControl.set_target(data.context, ready_temp)
+  def handle_event(:enter, old_state, :idle, data) do
+    Util.log_state_change(__MODULE__, old_state, :idle)
+    idle_target = data.config.idle_pressure
+    Boiler.PowerControl.set_target(data.context, idle_target)
+
+    Measurement.Store.subscribe(data.context, :boiler_pressure)
+    data = cancel_timer(%{data | prev_pressure: 0})
+
+    {:keep_state, %{data | prev_pressure: 0}}
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :idle, prev_data) do
+    data = %{prev_data | prev_pressure: val}
+
+    cond do
+      in_use_pressure_drop?(prev_data, val) ->
+        {:next_state, :active, data}
+
+      # I sort of want to get rid of this, but it plays a helpful
+      # role in upgrading the target to the active level on boot.
+      # We could have wake and init both jump to active, which might be fine.
+      # However we really need to sort out deduped subscriptions to make
+      # that work properly.
+      val < data.config.active_trigger_threshold ->
+        {:next_state, :active, data}
+
+      true ->
+        {:keep_state, data}
+    end
+  end
+
+  def handle_event(:info, _, :idle, _) do
     :keep_state_and_data
   end
 
-  def handle_event({:call, from}, :sleep, :ready, data) do
-    {:next_state, :sleep, data, {:reply, from, :ok}}
-  end
+  ## Active
+  ######################
 
-  def handle_event({:call, from}, :wake, :ready, _) do
-    {:keep_state_and_data, {:reply, from, :ok}}
-  end
+  def handle_event(:enter, old_state, :active, data) do
+    Util.log_state_change(__MODULE__, old_state, :active)
+    active_target = data.config.active_pressure
+    Boiler.PowerControl.set_target(data.context, active_target)
 
-  def handle_event(:info, _, :ready, _) do
     :keep_state_and_data
+  end
+
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :active, prev_data) do
+    new_data = %{prev_data | prev_pressure: val}
+
+    new_data =
+      cond do
+        # if we experience a notable drop in pressure
+        # then that means we are in active use and we should
+        # cancel the timer until we are back to temp
+        in_use_pressure_drop?(prev_data, val) ->
+          cancel_timer(new_data)
+
+        # if we get above the target value then we can start
+        # the timer for returning to idle. `start_timer` is
+        # idempotent and will not change a timer if one is already
+        # running
+        val >= new_data.config.active_pressure ->
+          start_timer(new_data)
+
+        true ->
+          new_data
+      end
+
+    # TODO: bump the timer if the val remains below our target
+    {:keep_state, new_data}
+  end
+
+  def handle_event(:info, :deactivate, :active, data) do
+    {:next_state, :idle, data}
   end
 
   ## Sleeping
@@ -105,16 +177,16 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   def handle_event(:enter, old_state, :sleep, data) do
     Util.log_state_change(__MODULE__, old_state, :sleep)
-    sleep_temp = lookup_config(data.context)[:sleep_temp]
-    Boiler.PowerControl.set_target(data.context, sleep_temp)
+    sleep_target = data.config.sleep_pressure
+    Boiler.PowerControl.set_target(data.context, sleep_target)
 
     :keep_state_and_data
   end
 
-  # If we start doing something we should kick out of sleep and enter the ready
+  # If we start doing something we should kick out of sleep and enter the idle
   # state
   def handle_event(:info, {:broadcast, :barista, {:program_start, _}}, :sleep, data) do
-    {:next_state, :ready, data}
+    {:next_state, :idle, data}
   end
 
   def handle_event(:info, {:broadcast, :barista, _}, :sleep, _) do
@@ -122,7 +194,7 @@ defmodule CoffeeTime.Boiler.PowerManager do
   end
 
   def handle_event({:call, from}, :wake, :sleep, data) do
-    {:next_state, :ready, data, {:reply, from, :ok}}
+    {:next_state, :idle, data, {:reply, from, :ok}}
   end
 
   def handle_event({:call, from}, :sleep, :sleep, _) do
@@ -138,13 +210,41 @@ defmodule CoffeeTime.Boiler.PowerManager do
     {:keep_state, data}
   end
 
+  def handle_event({:call, from}, {:replace_config, key, value}, _, data) do
+    old_config = data.config
+    new_config = Map.replace(old_config, key, value)
+    data = %{data | config: new_config}
+
+    __set_config__(data.context, new_config)
+
+    reply = [
+      old: old_config[key],
+      new: new_config[key]
+    ]
+
+    {:next_state, :sleep, data, {:reply, from, reply}}
+  end
+
+  def handle_event({:call, from}, :sleep, _, data) do
+    Measurement.Store.unsubscribe(data.context, :boiler_pressure)
+    {:next_state, :sleep, data, {:reply, from, :ok}}
+  end
+
+  def handle_event({:call, from}, :wake, _, _) do
+    {:keep_state_and_data, {:reply, from, :ok}}
+  end
+
+  def handle_event(:info, _, _, _) do
+    :keep_state_and_data
+  end
+
   ## Helpers
   ################
 
   defp set_quantum_jobs(context, config) do
     import Crontab.CronExpression
 
-    case config[:power_saver_interval] do
+    case config.power_saver_interval do
       {from = %Time{}, to = %Time{}} ->
         set_job(:sleep, ~e[#{from.minute} #{from.hour} * * *], fn -> sleep(context) end)
         set_job(:wake, ~e[#{to.minute} #{to.hour} * * *], fn -> wake(context) end)
@@ -165,5 +265,35 @@ defmodule CoffeeTime.Boiler.PowerManager do
 
   defp timezone() do
     Application.fetch_env!(:coffee_time, :timezone)
+  end
+
+  defp cancel_timer(data) do
+    if ref = data.active_timer do
+      Util.cancel_timer(ref)
+      %{data | active_timer: nil}
+    else
+      data
+    end
+  end
+
+  defp start_timer(data) do
+    if data.active_timer do
+      data
+    else
+      timer = Util.send_after(self(), :deactivate, data.config.active_duration)
+      %{data | active_timer: timer}
+    end
+  end
+
+  defp in_use_pressure_drop?(prev_data, val) do
+    prev_data.prev_pressure - val > 75
+  end
+
+  defp init_config(context) do
+    config = lookup_config(context) || %Config{}
+    # this is terrible
+    config = struct(Config, Map.take(config, Map.keys(%Config{}) -- [:__struct__]))
+    __set_config__(context, config)
+    config
   end
 end

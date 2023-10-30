@@ -25,6 +25,7 @@ defmodule CoffeeTime.Measurement do
     params =
       Map.put_new(params, :intervals, %{
         __MODULE__.BoilerTempProbe => %{read_interval: 500},
+        __MODULE__.BoilerPressureSender => %{read_interval: 500},
         __MODULE__.BoilerFillStatus => %{
           idle_read_interval: :timer.seconds(5),
           refill_read_interval: :timer.seconds(1)
@@ -35,8 +36,9 @@ defmodule CoffeeTime.Measurement do
     children = [
       {__MODULE__.Store, params},
       {__MODULE__.BoilerFillStatus, params},
-      {__MODULE__.Max31865Server, [rtd_wires: 4, spi_device_cs_pin: 0]},
-      {__MODULE__.BoilerTempProbe, params},
+      # {__MODULE__.Max31865Server, [rtd_wires: 4, spi_device_cs_pin: 0]},
+      # {__MODULE__.BoilerTempProbe, params},
+      {__MODULE__.BoilerPressureSender, params},
       {__MODULE__.CpuTemp, params},
       {__MODULE__.OneWireSensor,
        Map.merge(params, %{

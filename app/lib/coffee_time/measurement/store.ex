@@ -19,7 +19,8 @@ defmodule CoffeeTime.Measurement.Store do
     :ets
   ]
 
-  @type known_measurement() :: :boiler_temp | :boiler_fill_status | :cpu_temp | :ssr_temp
+  @type known_measurement() ::
+          :boiler_temp | :boiler_fill_status | :cpu_temp | :ssr_temp | :boiler_pressure
 
   @spec put(CoffeeTime.Context.t(), known_measurement, term) :: :ok
   def put(context, key, value) do
@@ -38,6 +39,11 @@ defmodule CoffeeTime.Measurement.Store do
   # @spec subscribe(CoffeeTime.Context.t(), known_measurement()) :: :ok
   def subscribe(%Context{} = context, key, opts \\ []) do
     PubSub.subscribe(context, key, opts)
+    :ok
+  end
+
+  def unsubscribe(%Context{} = context, key) do
+    PubSub.unsubscribe(context, key)
     :ok
   end
 

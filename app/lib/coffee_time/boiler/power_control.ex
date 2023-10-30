@@ -16,16 +16,9 @@ defmodule CoffeeTime.Boiler.PowerControl do
   alias CoffeeTime.Boiler
   alias CoffeeTime.Util
 
-  @default_reheat_offset_c -5
-  @reheat_increment_c 0.5
-
   defstruct target: 0,
             context: nil,
-            target_duty_cycle: 0,
-            hold_mode: :maintain,
-            reheat_timer: nil,
-            reheat_offset: @default_reheat_offset_c,
-            reheat_iteration: :timer.seconds(30)
+            target_duty_cycle: 0
 
   def set_target(context, val) do
     context
@@ -33,10 +26,10 @@ defmodule CoffeeTime.Boiler.PowerControl do
     |> GenStateMachine.call({:set_target, val})
   end
 
-  def reheat_status(context) do
+  def get_target(context) do
     context
     |> name(__MODULE__)
-    |> GenStateMachine.call(:reheat_status)
+    |> GenStateMachine.call(:get_target)
   end
 
   def start_link(%{context: context}) do
@@ -58,7 +51,7 @@ defmodule CoffeeTime.Boiler.PowerControl do
     # state if we are getting good readings from the boiler temp probe
 
     Measurement.Store.subscribe(data.context, :boiler_fill_status)
-    Measurement.Store.subscribe(data.context, :boiler_temp)
+    Measurement.Store.subscribe(data.context, :boiler_pressure)
 
     cond do
       Measurement.Store.get(data.context, :boiler_fill_status) == :full ->
@@ -69,11 +62,11 @@ defmodule CoffeeTime.Boiler.PowerControl do
     end
   end
 
-  ## Idle
+  ## Off
   ####################
 
-  # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
-  def handle_event(:info, _, :idle, _data) do
+  # No actions are supported in the off state. The fault should be cleared and the machine rebooted
+  def handle_event(:info, _, :off, _data) do
     :keep_state_and_data
   end
 
@@ -106,14 +99,12 @@ defmodule CoffeeTime.Boiler.PowerControl do
   ######################
 
   # Boiler temp update
-  def handle_event(:info, {:broadcast, :boiler_temp, val}, :hold_target, prev_data) do
+  def handle_event(:info, {:broadcast, :boiler_pressure, val}, :hold_target, prev_data) do
     # TODO: This is a super basic threshold style logic, to be later replaced by a PID.
     # At that point this will certainly get extracted from this module, and may end up
     # being its own process.
     data =
-      prev_data
-      |> adjust_hold_mode(val)
-      |> adjust_target_duty_cycle(val)
+      adjust_target_duty_cycle(prev_data, val)
 
     if data.target_duty_cycle != prev_data.target_duty_cycle do
       set_duty_cycle!(data)
@@ -137,14 +128,14 @@ defmodule CoffeeTime.Boiler.PowerControl do
   def handle_event({:call, from}, {:set_target, nil}, _state, data) do
     data = %{data | target: nil, target_duty_cycle: 0}
     set_duty_cycle!(data)
-    {:next_state, :idle, data, [{:reply, from, :ok}]}
+    {:next_state, :off, data, [{:reply, from, :ok}]}
   end
 
   def handle_event({:call, from}, {:set_target, target}, _state, data) do
     Logger.info("Setting target: #{target}")
 
     {response, data} =
-      if target < 128 do
+      if valid_target?(target) do
         {:ok, %{data | target: target}}
       else
         {{:error, :unsafe_target}, data}
@@ -153,35 +144,12 @@ defmodule CoffeeTime.Boiler.PowerControl do
     {:keep_state, data, [{:reply, from, response}]}
   end
 
-  def handle_event({:call, from}, :reheat_status, _state, data) do
-    response = %{
-      threshold: threshold(data),
-      hold_mode: data.hold_mode
-    }
-
-    {:keep_state_and_data, [{:reply, from, response}]}
+  def handle_event({:call, from}, :get_target, _state, data) do
+    {:keep_state_and_data, [{:reply, from, data.target}]}
   end
 
   ## General Handlers
   ##############################
-
-  def handle_event(:info, {:reheat_increment, increment}, _, data) do
-    data =
-      data
-      |> Map.update!(:reheat_offset, fn offset ->
-        min(offset + increment, 0)
-      end)
-      |> cancel_reheat_timer
-      |> case do
-        %{reheat_offset: offset} = data when offset == 0 ->
-          switch_to_maintain(data)
-
-        data ->
-          data
-      end
-
-    {:keep_state, data}
-  end
 
   def handle_event(:enter, old_state, new_state, data) do
     Util.log_state_change(__MODULE__, old_state, new_state)
@@ -194,85 +162,15 @@ defmodule CoffeeTime.Boiler.PowerControl do
     :ok = Boiler.DutyCycle.set(context, cycle)
   end
 
-  def adjust_hold_mode(%{hold_mode: :reheat} = data, value) do
-    cond do
-      # We are fully heated up, so switch out of reheat mode
-      value >= data.target ->
-        switch_to_maintain(data)
-
-      data.reheat_offset == 0 ->
-        switch_to_maintain(data)
-
-      true ->
-        data
-    end
-  end
-
-  def adjust_hold_mode(data, value) do
-    if value < offset_threshold(data) do
-      Logger.notice("""
-      Boiler entering reheat mode.
-      """)
-
-      %{data | hold_mode: :reheat}
-    else
-      data
-    end
-  end
-
   def adjust_target_duty_cycle(data, value) do
-    if value < threshold(data) do
+    if value < data.target do
       %{data | target_duty_cycle: 10}
     else
-      data
-      |> Map.replace(:target_duty_cycle, 0)
-      |> maybe_set_reheat_timer()
+      %{data | target_duty_cycle: 0}
     end
   end
 
-  def threshold(data) do
-    case data.hold_mode do
-      :maintain -> data.target
-      :reheat -> offset_threshold(data)
-    end
-  end
-
-  defp offset_threshold(data) do
-    data.target + data.reheat_offset
-  end
-
-  def maybe_set_reheat_timer(data) do
-    case data do
-      %{hold_mode: :reheat, reheat_timer: nil} ->
-        timer =
-          Util.send_after(
-            self(),
-            {:reheat_increment, @reheat_increment_c},
-            data.reheat_iteration
-          )
-
-        %{data | reheat_timer: timer}
-
-      _ ->
-        data
-    end
-  end
-
-  defp cancel_reheat_timer(data) do
-    if timer = data.reheat_timer do
-      Util.cancel_timer(timer)
-    end
-
-    %{data | reheat_timer: nil}
-  end
-
-  defp switch_to_maintain(data) do
-    data = cancel_reheat_timer(data)
-
-    %{
-      data
-      | hold_mode: :maintain,
-        reheat_offset: @default_reheat_offset_c
-    }
+  defp valid_target?(target) do
+    target < 15000
   end
 end

@@ -111,11 +111,11 @@ defmodule CoffeeTime.Hydraulics do
     end
   end
 
-  ## Idle
+  ## Off
   ####################
 
-  # No actions are supported in the idle state. The fault should be cleared and the machine rebooted
-  def handle_event(:info, _, :idle, _data) do
+  # No actions are supported in the off state. The fault should be cleared and the machine rebooted
+  def handle_event(:info, _, :off, _data) do
     :keep_state_and_data
   end
 

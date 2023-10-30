@@ -8,8 +8,8 @@ defmodule CoffeeTime.PubSub do
   end
 
   def broadcast(%{pubsub: pubsub}, key, value) do
-    Registry.dispatch(pubsub, key, &do_broadcast(&1, key, value))
-    Registry.dispatch(pubsub, "*", &do_broadcast(&1, key, value))
+    Registry.dispatch(pubsub, key, &do_broadcast(&1, key, value), parallel: false)
+    Registry.dispatch(pubsub, "*", &do_broadcast(&1, key, value), parallel: false)
   end
 
   def ls(registry) do

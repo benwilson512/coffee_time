@@ -9,6 +9,7 @@ defmodule CoffeeTime.MeasurementTest do
       Measurement.start_link(%{
         context: context,
         intervals: %{
+          Measurement.BoilerPressureSender => %{read_interval: :infinity},
           Measurement.BoilerTempProbe => %{read_interval: :infinity},
           Measurement.BoilerFillStatus => %{
             idle_read_interval: :infinity,
@@ -22,6 +23,19 @@ defmodule CoffeeTime.MeasurementTest do
   end
 
   describe "store can be written to by:" do
+    test "boiler pressure sender", %{context: context} do
+      Measurement.Store.subscribe(context, :boiler_pressure)
+      boiler_pid = lookup_pid(context, Measurement.BoilerPressureSender)
+
+      send(boiler_pid, :query)
+      send(boiler_pid, {:boiler_pressure, 9000})
+
+      assert_receive({:broadcast, :boiler_pressure, 9000})
+
+      assert 9000 == Measurement.Store.fetch!(context, :boiler_pressure)
+    end
+
+    @tag :boiler_temp
     test "boiler temp probe", %{context: context} do
       Measurement.Store.subscribe(context, :boiler_temp)
       boiler_pid = lookup_pid(context, Measurement.BoilerTempProbe)

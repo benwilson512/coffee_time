@@ -62,12 +62,14 @@ defmodule CoffeeTime.Context do
       },
       healthcheck: %{
         cpu_temp: :timer.seconds(15),
-        boiler_temp: :timer.seconds(5),
+        # boiler_temp: :timer.seconds(5),
+        boiler_pressure: :timer.seconds(5),
         boiler_fill_status: :timer.seconds(10)
       },
       bound: %{
         cpu_temp: 10..70,
-        boiler_temp: 10..130
+        # boiler_temp: 10..130,
+        boiler_pressure: 7_000..14_500
       }
     }
   end

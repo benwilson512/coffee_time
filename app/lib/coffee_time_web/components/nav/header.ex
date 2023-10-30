@@ -20,7 +20,7 @@ defmodule CoffeeTimeWeb.Nav.Header do
           <span :if={is_nil(@fault)} class="rounded-lg bg-pastel-gray-700 px-2 py-1">
             <.icon name={
               if @hold_mode == :reheat, do: "hero-cloud-arrow-up-mini", else: "hero-cloud-mini"
-            } /> <%= @boiler_temp %>°C (<%= @threshold %>°C)
+            } /> <%= @boiler_pressure %>°C (<%= @threshold %>°C)
           </span>
           <span :if={@fault} class="rounded-lg bg-pastel-gray-700 px-2 py-1">
             <.icon name="hero-exclamation-triangle-mini bg-cadmium-orange" />
@@ -33,13 +33,13 @@ defmodule CoffeeTimeWeb.Nav.Header do
   end
 
   def update(%{broadcast: {key, value}}, socket) do
-    %{hold_mode: hold_mode, threshold: threshold} =
-      CoffeeTime.Boiler.PowerControl.reheat_status(socket.assigns.context)
+    threshold =
+      CoffeeTime.Boiler.PowerControl.get_target(socket.assigns.context)
 
     socket =
       socket
       |> assign(key, to_string(trunc(value)))
-      |> assign(:hold_mode, hold_mode)
+      |> assign(:hold_mode, :maintain)
       |> assign(:threshold, threshold)
 
     {:ok, socket}
@@ -51,7 +51,7 @@ defmodule CoffeeTimeWeb.Nav.Header do
     socket =
       socket
       |> assign(:cpu_temp, "-")
-      |> assign(:boiler_temp, "-")
+      |> assign(:boiler_pressure, "-")
       |> assign(:hold_mode, :reheat)
       |> assign(:threshold, "-")
       |> assign(:fault, CoffeeTime.Watchdog.get_fault(context))
@@ -66,7 +66,7 @@ defmodule CoffeeTimeWeb.Nav.Header do
       socket
     else
       context = socket.assigns.context
-      CoffeeTimeWeb.subscribe_component(context, __MODULE__, id, :boiler_temp)
+      CoffeeTimeWeb.subscribe_component(context, __MODULE__, id, :boiler_pressure)
       CoffeeTimeWeb.subscribe_component(context, __MODULE__, id, :cpu_temp)
 
       assign(socket, :subscribed, true)

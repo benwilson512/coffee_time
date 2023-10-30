@@ -49,7 +49,7 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
       assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, PowerControl))
 
       Measurement.Store.put(context, :boiler_fill_status, :full)
-      Measurement.Store.put(context, :boiler_temp, 124)
+      Measurement.Store.put(context, :boiler_pressure, 124)
       assert {:hold_target, _} = :sys.get_state(name(context, PowerControl))
       # Target temp is 128 but the current temp is 20, so we should be on
       # full power to get to temp.
@@ -65,137 +65,6 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
     end
   end
 
-  describe "reheat process" do
-    setup :boot
-
-    test "low boiler temperature compared to the target temp triggers an initialization phase", %{
-      context: context
-    } do
-      # boilerplate
-      PubSub.subscribe(context, :boiler_duty_cycle)
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
-      # Set a high target temp, but then read a room temperature temp.
-      PowerControl.set_target(context, 121)
-      Measurement.Store.put(context, :boiler_temp, 34)
-
-      # This should kick us into the boiler temp reheat
-      assert {:hold_target, %{hold_mode: :reheat}} = :sys.get_state(name(context, PowerControl))
-
-      # After another reading confirming our temp in this state we should
-      # start heating
-      Measurement.Store.put(context, :boiler_temp, 34)
-      assert_receive({:broadcast, :boiler_duty_cycle, 10})
-
-      # Once we are more than the offset, we should turn off the boiler and start
-      # the timer
-      Measurement.Store.put(context, :boiler_temp, 116)
-      assert_receive({:broadcast, :boiler_duty_cycle, 0})
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_timer
-      assert state.hold_mode == :reheat
-
-      # If we drop below the reduced temp we still add heat, but the timer should not change
-      Measurement.Store.put(context, :boiler_temp, 115)
-      assert_receive({:broadcast, :boiler_duty_cycle, 10})
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_timer
-      assert state.hold_mode == :reheat
-
-      # increment the offset all the way. This should kick us into maintain mode
-      send(lookup_pid(context, PowerControl), {:reheat_increment, 5})
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      refute state.reheat_timer
-      assert state.hold_mode == :maintain
-    end
-
-    test "reheat auto adjusts up", %{context: context} do
-      # boilerplate
-      PubSub.subscribe(context, :boiler_duty_cycle)
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
-      # Set a high target temp, but then read a room temperature temp.
-      PowerControl.set_target(context, 121)
-      Measurement.Store.put(context, :boiler_temp, 34)
-
-      assert {:hold_target, %{hold_mode: :reheat} = state} =
-               :sys.get_state(name(context, PowerControl))
-
-      assert state.reheat_offset == -5
-
-      # Once we are more than the offset, we should turn off the boiler and start
-      # the timer
-      Measurement.Store.put(context, :boiler_temp, 116)
-      assert_receive({:broadcast, :boiler_duty_cycle, 0})
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_timer
-      assert state.hold_mode == :reheat
-      # the offset should still be -5 until the timer goes off
-      assert state.reheat_offset == -5
-
-      send(lookup_pid(context, PowerControl), {:reheat_increment, 0.5})
-
-      # The offset should have been moved up, and the timer canceled.
-      # It won't kick on again until we go above the offset threshold
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_offset == -4.5
-      refute state.reheat_timer
-
-      # We read a value that is still less than the offset threshold, so all the stuff should be
-      # the same as before.
-      Measurement.Store.put(context, :boiler_temp, 116.2)
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_offset == -4.5
-      refute state.reheat_timer
-
-      # We read above the offset threshold, so we kick off the timer to adjust it upward
-      Measurement.Store.put(context, :boiler_temp, 116.5)
-      assert {:hold_target, state} = :sys.get_state(name(context, PowerControl))
-      assert state.reheat_offset == -4.5
-      assert state.reheat_timer
-    end
-
-    test "reheat plays well with boiler fill", %{
-      context: context
-    } do
-      # boilerplate
-      PubSub.subscribe(context, :boiler_duty_cycle)
-      Measurement.Store.put(context, :boiler_fill_status, :full)
-
-      # Set a high target temp, but then read a room temperature temp.
-      PowerControl.set_target(context, 121)
-      Measurement.Store.put(context, :boiler_temp, 34)
-
-      # This should kick us into the boiler temp reheat
-      assert {:hold_target, %{hold_mode: :reheat}} = :sys.get_state(name(context, PowerControl))
-
-      # We've heated up nicely and the timer is kicked off to go to maintainance mode
-      Measurement.Store.put(context, :boiler_temp, 118)
-
-      assert {:hold_target, %{reheat_timer: timer}} =
-               :sys.get_state(name(context, PowerControl))
-
-      assert timer
-
-      # But now the boiler is low and we need water.
-      Measurement.Store.put(context, :boiler_fill_status, :low)
-
-      assert {:awaiting_boiler_fill, _} = :sys.get_state(name(context, PowerControl))
-
-      # The timer goes off while we are filling the boiler
-      send(lookup_pid(context, PowerControl), {:reheat_increment, 5})
-
-      Measurement.Store.put(context, :boiler_temp, 122)
-
-      flush()
-
-      # The hold mode should be adjusted
-      assert {:awaiting_boiler_fill,
-              %{hold_mode: :maintain, reheat_offset: -5, reheat_timer: nil}} =
-               :sys.get_state(name(context, PowerControl))
-    end
-  end
-
   describe "post boot boiler refill" do
     setup :boot
 
@@ -206,7 +75,7 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
       :ok = PowerControl.set_target(context, 125)
 
       assert {:hold_target, _} = :sys.get_state(name(context, PowerControl))
-      Measurement.Store.put(context, :boiler_temp, 120)
+      Measurement.Store.put(context, :boiler_pressure, 120)
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
 
       Measurement.Store.put(context, :boiler_fill_status, :low)
@@ -221,7 +90,7 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
       Measurement.Store.put(context, :boiler_fill_status, :full)
       assert {:hold_target, _} = :sys.get_state(name(context, PowerControl))
       # The duty cycle changes are only triggered when we get an update about the current temp
-      Measurement.Store.put(context, :boiler_temp, 120)
+      Measurement.Store.put(context, :boiler_pressure, 120)
       assert_receive({:broadcast, :boiler_duty_cycle, 10})
     end
   end
@@ -250,7 +119,7 @@ defmodule CoffeeTime.Boiler.PowerControlTest do
     assert {:hold_target, _} = :sys.get_state(name(context, PowerControl))
 
     # send a temp so we trigger heating
-    Measurement.Store.put(context, :boiler_temp, 120)
+    Measurement.Store.put(context, :boiler_pressure, 120)
     assert_receive({:broadcast, :boiler_duty_cycle, 10})
     assert_receive({:write_gpio, :duty_cycle, 1})
     refute_receive(_)
