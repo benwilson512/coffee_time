@@ -149,15 +149,9 @@ defmodule CoffeeTime.Boiler.PowerManager do
       cond do
         # if we experience a notable drop in pressure
         # then that means we are in active use and we should
-        # reset the timer
+        # cancel the timer until we are back to temp
         in_use_pressure_drop?(prev_data, val) ->
-          Logger.debug("""
-          Bumping active timer
-          """)
-
-          new_data
-          |> cancel_timer()
-          |> start_timer()
+          cancel_timer(new_data)
 
         # if we get above the target value then we can start
         # the timer for returning to idle. `start_timer` is

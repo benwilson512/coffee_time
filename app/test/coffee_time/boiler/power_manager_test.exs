@@ -80,17 +80,42 @@ defmodule CoffeeTime.Boiler.PowerManagerTest do
     end
   end
 
-  describe "active" do
+  describe "active duration" do
     setup [:boot, :activate]
 
     @describetag config: %Config{
                    idle_pressure: 10300,
                    active_trigger_threshold: 9000,
                    active_pressure: 12000,
-                   active_duration: :infinity
+                   active_duration: 20
                  }
 
     test "activate sets a timer once we get pressure above target", %{context: context} do
+      assert {:active, %{active_timer: nil}} = get_state(context, PowerManager)
+      Measurement.Store.put(context, :boiler_pressure, 12001)
+      assert {:active, %{active_timer: timer}} = get_state(context, PowerManager)
+      assert timer
+    end
+
+    test "we return to idle after the active duration", %{context: context} do
+      Measurement.Store.put(context, :boiler_pressure, 12001)
+      assert {:active, %{active_timer: timer}} = get_state(context, PowerManager)
+      assert timer
+
+      # Sleep past the timer
+      Process.sleep(30)
+      assert {:idle, %{active_timer: nil}} = get_state(context, PowerManager)
+    end
+
+    test "pressure drop cancels the timer", %{context: context} do
+      Measurement.Store.put(context, :boiler_pressure, 12001)
+      assert {:active, %{active_timer: timer}} = get_state(context, PowerManager)
+      assert timer
+
+      # Sleep a bit, then do a big pressure drop
+      Process.sleep(10)
+      Measurement.Store.put(context, :boiler_pressure, 12001 - 101)
+
       assert {:active, %{active_timer: nil}} = get_state(context, PowerManager)
     end
   end
