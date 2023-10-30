@@ -1,10 +1,21 @@
 defmodule CoffeeTime.Boiler.PowerManager do
   @moduledoc """
   Manages changing the desired temp
-  """
 
-  # I'm not 100% convinced this needs to be a dedicated process vs the temp control and duty
-  # cycle pids, but I'll sort that out at some point.
+  Roughly speaking the boiler operations in 3 power modes:
+
+  1) Sleep: It's asleep and there is no power
+  2) Idle: It's hot enough to be pressurized and make espresso, but is too low
+  for practical steaming
+  3) Active: Nice and hot for steaming.
+
+  Sleep is controlled via a schedule. You can also kick it out of sleep mode by
+  running any barista program or manually via the API.
+
+  Idle converts to active by flushing steam through the steam wand. You need to
+  do this anyway to flush condensate, so this tells the `PowerManager` that you
+  want steam.
+  """
 
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
   require Logger
