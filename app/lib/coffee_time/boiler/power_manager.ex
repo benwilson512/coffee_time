@@ -258,11 +258,11 @@ defmodule CoffeeTime.Boiler.PowerManager do
     __set_config__(data.context, new_config)
 
     reply = [
-      old: old_config[key],
-      new: new_config[key]
+      old: Map.fetch!(old_config, key),
+      new: Map.fetch!(new_config, key)
     ]
 
-    {:next_state, :sleep, data, {:reply, from, reply}}
+    {:repeat_state, data, {:reply, from, reply}}
   end
 
   def handle_event({:call, from}, :sleep, _, data) do
