@@ -22,6 +22,32 @@ defmodule CoffeeTime.ControlPanel do
     timers: %{}
   ]
 
+  def dump_config(context) do
+    context
+    |> db
+    |> CubDB.select(min_key: {:control_panel, 1}, max_key: {:control_panel, {}})
+    |> Enum.to_list()
+    |> Enum.map(fn
+      {{:control_panel, button}, spec} -> {button, spec}
+    end)
+  end
+
+  def set_button(context, logical_button, {:program, program_name}) do
+    db = db(context)
+    key = {:control_panel, logical_button}
+
+    case Barista.get_program(context, program_name) do
+      %Barista.Program{} ->
+        new = {:program, program_name}
+        old = CubDB.get(db, key)
+        CubDB.put(db, key, new)
+        {:ok, old: old, new: new}
+
+      other ->
+        {:error, {:program_not_found, name: program_name, returned: other}}
+    end
+  end
+
   def start_link(%{context: context} = params) do
     GenStateMachine.start_link(__MODULE__, params, name: name(context, __MODULE__))
   end
