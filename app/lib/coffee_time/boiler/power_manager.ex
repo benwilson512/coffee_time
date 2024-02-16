@@ -323,15 +323,6 @@ defmodule CoffeeTime.Boiler.PowerManager do
     Application.fetch_env!(:coffee_time, :timezone)
   end
 
-  defp cancel_timer(data) do
-    if ref = data.active_timer do
-      Util.cancel_timer(ref)
-      %{data | active_timer: nil}
-    else
-      data
-    end
-  end
-
   defp in_use_pressure_drop?(prev_data, val) do
     prev_data.prev_pressure - val > 75
   end
