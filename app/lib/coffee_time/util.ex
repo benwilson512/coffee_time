@@ -11,10 +11,11 @@ defmodule CoffeeTime.Util do
     Process.send_after(dest, msg, time, opts)
   end
 
-  def cancel_timer(:infinity), do: :ok
+  def cancel_timer(timer, opts \\ [])
+  def cancel_timer(:infinity, _), do: :ok
 
-  def cancel_timer(ref) when is_reference(ref) do
-    Process.cancel_timer(ref)
+  def cancel_timer(ref, opts) when is_reference(ref) do
+    Process.cancel_timer(ref, opts)
   end
 
   def cancel_self_timer(%{} = map, key) do

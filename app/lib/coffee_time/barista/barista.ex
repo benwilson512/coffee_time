@@ -163,11 +163,13 @@ defmodule CoffeeTime.Barista do
 
   def handle_event({:call, from}, :halt, {:executing, program}, data) do
     {:ok, _} = Hydraulics.halt(data.context)
-    for {_, timer} <- data.timers, do: Util.cancel_timer(timer)
+    timer_info = for {k, timer} <- data.timers, do: {k, Util.cancel_timer(timer, info: true)}
 
-    Logger.debug("""
+    Logger.info("""
     Program instructed to halt early. Current state:
     #{inspect(program)}
+    Timers:
+    #{inspect(timer_info)}
     """)
 
     {:next_state, :ready, %{data | timers: %{}}, {:reply, from, :ok}}
