@@ -170,7 +170,7 @@ defmodule CoffeeTime.ControlPanel do
 
   def handle_event(:info, {:circuits_gpio, ref, _, 1}, {:watching, %{ref: ref}}, data) do
     if press_confirmed?(ref, data) do
-      Barista.halt(data.context)
+      :ok = Barista.halt(data.context)
       {:next_state, :ready, data}
     else
       :keep_state_and_data
