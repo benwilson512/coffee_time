@@ -130,6 +130,12 @@ defmodule CoffeeTime.Boiler.PowerManager do
         {:keep_state, data}
 
       in_use_pressure_drop?(prev_data, val) ->
+        Logger.info("""
+        Active pressure drop: #{prev_data.prev_pressure - val}
+        before: #{prev_data.prev_pressure}
+        after: #{val}
+        """)
+
         {:next_state, :active, data}
 
       # I sort of want to get rid of this, but it plays a helpful

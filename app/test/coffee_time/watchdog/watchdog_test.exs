@@ -45,7 +45,11 @@ defmodule CoffeeTime.WatchdogTest do
 
     @tag bound: %{boiler_pressure: 7000..14000}
     test "boiler high pressure faults", %{context: context} do
-      PubSub.broadcast(context, :boiler_pressure, 14_500)
+      # send 4 bad values so that we exceed the grace period
+      for _ <- 1..4 do
+        PubSub.broadcast(context, :boiler_pressure, 14_500)
+      end
+
       assert_receive({:DOWN, _, :process, _, :fault}, 100)
       # Give the supervisor time to reboot it.
       Process.sleep(50)
@@ -59,7 +63,11 @@ defmodule CoffeeTime.WatchdogTest do
     @tag :boiler_temp
     @tag bound: %{boiler_temp: 0..130}
     test "boiler high temp faults", %{context: context} do
-      PubSub.broadcast(context, :boiler_temp, 131)
+      # send 4 bad values so that we exceed the grace period
+      for _ <- 1..4 do
+        PubSub.broadcast(context, :boiler_temp, 131)
+      end
+
       assert_receive({:DOWN, _, :process, _, :fault}, 100)
       # Give the supervisor time to reboot it.
       Process.sleep(50)
@@ -71,7 +79,10 @@ defmodule CoffeeTime.WatchdogTest do
 
     @tag bound: %{cpu_temp: 0..50}
     test "cpu high temp faults", %{context: context} do
-      PubSub.broadcast(context, :cpu_temp, 51)
+      for _ <- 1..4 do
+        PubSub.broadcast(context, :cpu_temp, 51)
+      end
+
       assert_receive({:DOWN, _, :process, _, :fault}, 100)
       # Give the supervisor time to reboot it.
       Process.sleep(50)

@@ -19,7 +19,8 @@ defmodule CoffeeTime.Watchdog do
     bound: %{},
     allowances: %{},
     reboot_on_fault: true,
-    timers: %{}
+    timers: %{},
+    boundary_violations: %{}
   ]
 
   @type fault_type :: :deadline | :healthcheck | :bound
@@ -207,11 +208,7 @@ defmodule CoffeeTime.Watchdog do
     bound = Map.get(state.bound, key)
 
     if bound && not safe_val?(bound, val) do
-      {:stop, :fault,
-       set_fault(
-         state,
-         "Boundary violated: The value of #{key}, #{val}, violates #{inspect(bound)}"
-       )}
+      register_boundary_violation(state, bound, key, val)
     else
       state =
         state
@@ -396,5 +393,22 @@ defmodule CoffeeTime.Watchdog do
 
   defp safe_val?(lower..upper, val) do
     lower <= val and val <= upper
+  end
+
+  defp register_boundary_violation(state, bound, key, val) do
+    boundary_violations =
+      Map.update(state.boundary_violations, key, 1, fn prev -> prev + 1 end)
+
+    state = %{state | boundary_violations: boundary_violations}
+
+    if Map.fetch!(boundary_violations, key) > 3 do
+      {:stop, :fault,
+       set_fault(
+         state,
+         "Boundary violated: The value of #{key}, #{val}, violates #{inspect(bound)}"
+       )}
+    else
+      {:noreply, state}
+    end
   end
 end

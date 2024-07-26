@@ -40,7 +40,19 @@ defmodule CoffeeTime.Hardware.Pi do
     end
 
     def read_boiler_pressure_sender(_, ref) do
-      {:ok, pressure} = ADS1115.read(ref, 72, {:ain2, :gnd})
+      config = %ADS1115.Config{
+        performing_conversion: false,
+        mux: {:ain2, :gnd},
+        gain: 2048,
+        mode: :single_shot,
+        data_rate: 8,
+        comp_mode: :traditional,
+        comp_polarity: :active_low,
+        comp_latch: false,
+        comp_queue: :disabled
+      }
+
+      {:ok, pressure} = ADS1115.custom_read(ref, 72, config)
       pressure
     end
 

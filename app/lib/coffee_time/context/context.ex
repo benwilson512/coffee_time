@@ -69,7 +69,7 @@ defmodule CoffeeTime.Context do
       bound: %{
         cpu_temp: 10..70,
         # boiler_temp: 10..130,
-        boiler_pressure: 7_000..14_500
+        boiler_pressure: 5_000..14_500
       }
     }
   end

@@ -166,8 +166,9 @@ defmodule CoffeeTime.Barista do
     timer_info = for {k, timer} <- data.timers, do: {k, Util.cancel_timer(timer, info: true)}
 
     Logger.info("""
-    Program instructed to halt early. Current state:
-    #{inspect(program)}
+    Program #{inspect(program.name)} instructed to halt early.
+    Remaining steps:
+    #{inspect(data.steps)}
     Timers:
     #{inspect(timer_info)}
     """)
